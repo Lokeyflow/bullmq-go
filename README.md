@@ -1,7 +1,7 @@
 # BullMQ-Go
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/yourusername/bullmq-go.svg)](https://pkg.go.dev/github.com/yourusername/bullmq-go)
-[![Go Report Card](https://goreportcard.com/badge/github.com/yourusername/bullmq-go)](https://goreportcard.com/report/github.com/yourusername/bullmq-go)
+[![Go Reference](https://pkg.go.dev/badge/github.com/Lokeyflow/bullmq-go.svg)](https://pkg.go.dev/github.com/Lokeyflow/bullmq-go)
+[![Go Report Card](https://goreportcard.com/badge/github.com/Lokeyflow/bullmq-go)](https://goreportcard.com/report/github.com/Lokeyflow/bullmq-go)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A Go client library for [BullMQ](https://github.com/taskforcesh/bullmq), providing full protocol compatibility with Node.js BullMQ. Build reliable, distributed job queues using Redis with Go workers and producers that seamlessly interoperate with Node.js BullMQ applications.
@@ -22,7 +22,7 @@ A Go client library for [BullMQ](https://github.com/taskforcesh/bullmq), providi
 ## Installation
 
 ```bash
-go get github.com/yourusername/bullmq-go
+go get github.com/Lokeyflow/bullmq-go
 ```
 
 ## Quick Start
@@ -38,7 +38,7 @@ import (
     "log"
 
     "github.com/redis/go-redis/v9"
-    "github.com/yourusername/bullmq-go/pkg/bullmq"
+    "github.com/Lokeyflow/bullmq-go/pkg/bullmq"
 )
 
 func main() {
@@ -84,7 +84,7 @@ import (
     "time"
 
     "github.com/redis/go-redis/v9"
-    "github.com/yourusername/bullmq-go/pkg/bullmq"
+    "github.com/Lokeyflow/bullmq-go/pkg/bullmq"
 )
 
 func main() {
@@ -130,7 +130,7 @@ import (
     "time"
 
     "github.com/redis/go-redis/v9"
-    "github.com/yourusername/bullmq-go/pkg/bullmq"
+    "github.com/Lokeyflow/bullmq-go/pkg/bullmq"
 )
 
 func main() {
@@ -368,7 +368,7 @@ queue := bullmq.NewQueue("myqueue", redisClient, bullmq.QueueOptions{
 ### Prometheus Metrics
 
 ```go
-import "github.com/yourusername/bullmq-go/pkg/bullmq/metrics"
+import "github.com/Lokeyflow/bullmq-go/pkg/bullmq/metrics"
 
 // Register metrics with Prometheus
 metrics.RegisterMetrics()
@@ -489,7 +489,7 @@ See the [examples/](./examples/) directory for complete working examples:
 
 ## Documentation
 
-- [API Documentation](https://pkg.go.dev/github.com/yourusername/bullmq-go)
+- [API Documentation](https://pkg.go.dev/github.com/Lokeyflow/bullmq-go)
 - [Specification](./001-bullmq-protocol-implementation/spec.md) - Complete feature specification
 - [Data Model](./001-bullmq-protocol-implementation/data-model.md) - Job structure and Redis storage
 - [Research](./001-bullmq-protocol-implementation/research.md) - Design decisions and protocol analysis
@@ -503,7 +503,7 @@ Contributions are welcome! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for g
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/bullmq-go.git
+git clone https://github.com/Lokeyflow/bullmq-go.git
 cd bullmq-go
 
 # Install dependencies
@@ -545,8 +545,8 @@ MIT License - see [LICENSE](./LICENSE) for details.
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/bullmq-go/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/bullmq-go/discussions)
+- **Issues**: [GitHub Issues](https://github.com/Lokeyflow/bullmq-go/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/Lokeyflow/bullmq-go/discussions)
 - **BullMQ Documentation**: https://docs.bullmq.io/
 
 ## Status
