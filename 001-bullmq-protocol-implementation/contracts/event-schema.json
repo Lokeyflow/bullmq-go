@@ -1,0 +1,114 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://lokeyflow.com/schemas/bullmq-event.json",
+  "title": "BullMQ Event",
+  "description": "Schema for job lifecycle events emitted to Redis Stream",
+  "type": "object",
+  "required": ["event", "jobId", "timestamp"],
+  "properties": {
+    "event": {
+      "type": "string",
+      "enum": ["waiting", "active", "progress", "completed", "failed", "stalled", "retry"],
+      "description": "Event type"
+    },
+    "jobId": {
+      "type": "string",
+      "description": "Associated job ID"
+    },
+    "timestamp": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Unix timestamp in milliseconds"
+    },
+    "attemptsMade": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Attempt number when event occurred"
+    },
+    "data": {
+      "type": "object",
+      "description": "Event-specific data",
+      "oneOf": [
+        { "$ref": "#/definitions/ActiveEventData" },
+        { "$ref": "#/definitions/ProgressEventData" },
+        { "$ref": "#/definitions/CompletedEventData" },
+        { "$ref": "#/definitions/FailedEventData" },
+        { "$ref": "#/definitions/RetryEventData" }
+      ]
+    }
+  },
+  "definitions": {
+    "ActiveEventData": {
+      "type": "object",
+      "properties": {
+        "workerId": {
+          "type": "string",
+          "description": "Worker that picked up the job"
+        }
+      }
+    },
+    "ProgressEventData": {
+      "type": "object",
+      "required": ["progress"],
+      "properties": {
+        "progress": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Job completion percentage"
+        },
+        "message": {
+          "type": "string",
+          "description": "Optional progress message"
+        }
+      }
+    },
+    "CompletedEventData": {
+      "type": "object",
+      "required": ["returnvalue"],
+      "properties": {
+        "returnvalue": {
+          "type": "object",
+          "description": "Job result",
+          "properties": {
+            "videoUrl": {
+              "type": "string",
+              "format": "uri"
+            },
+            "duration": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "FailedEventData": {
+      "type": "object",
+      "required": ["failedReason"],
+      "properties": {
+        "failedReason": {
+          "type": "string",
+          "description": "Error message"
+        },
+        "stacktrace": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Error stack trace"
+        }
+      }
+    },
+    "RetryEventData": {
+      "type": "object",
+      "properties": {
+        "delay": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Backoff delay in milliseconds"
+        }
+      }
+    }
+  }
+}

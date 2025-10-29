@@ -1,0 +1,439 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+**bullmq-go** is a Go client library for [BullMQ](https://github.com/taskforcesh/bullmq), providing protocol-compatible job queue functionality using Redis. This library enables Go applications to produce and consume jobs from BullMQ queues, with full interoperability with Node.js BullMQ workers and producers.
+
+## Project Type
+
+Standalone Go library (not an application). The library provides:
+- **Worker** API for consuming jobs from BullMQ queues
+- **Producer** API for adding jobs to BullMQ queues
+- **Queue Manager** API for queue operations (pause, resume, clean, etc.)
+- Full BullMQ protocol compatibility via Lua scripts
+
+## Architecture
+
+### Core Components
+
+```
+pkg/bullmq/
+├── worker.go          - Job consumer with heartbeat and stalled detection
+├── producer.go        - Job producer with priority, delay, and scheduling
+├── queue.go           - Queue management operations
+├── keys.go            - Redis key builder with hash tag support
+├── job.go             - Job data structures (Job, JobOptions, BackoffConfig)
+├── events.go          - Event emission to Redis streams
+├── heartbeat.go       - Lock heartbeat for job ownership
+├── stalled.go         - Stalled job detection and recovery
+├── retry.go           - Retry logic with exponential backoff
+├── errors.go          - Error categorization (transient vs permanent)
+└── scripts/           - BullMQ Lua scripts for atomic operations
+    ├── moveToActive.lua
+    ├── moveToCompleted.lua
+    ├── moveToFailed.lua
+    ├── retryJob.lua
+    ├── moveStalledJobsToWait.lua
+    ├── extendLock.lua
+    ├── updateProgress.lua
+    └── addLog.lua
+```
+
+### Key Design Principles
+
+1. **Protocol Compatibility**: Use official BullMQ Lua scripts (extracted from Node.js repo) for atomic Redis operations
+2. **Redis Cluster Support**: All keys use hash tags `{queue-name}` for cluster compatibility
+3. **Atomicity**: All state transitions use Lua scripts (not MULTI/EXEC) for proper atomicity
+4. **Error Handling**: Categorize errors as transient (retry) or permanent (fail immediately)
+5. **Graceful Degradation**: Worker survives Redis disconnects, graceful shutdown, crash recovery via stalled detection
+
+### Job Lifecycle
+
+```
+Submitted → wait/prioritized → active (locked) → completed/failed/stalled
+                                  ↓ (lock expired)
+                                stalled → wait (retry)
+```
+
+- **wait queue** (LIST): FIFO for jobs without priority
+- **prioritized queue** (ZSET): Priority-based processing (higher priority first)
+- **delayed queue** (ZSET): Scheduled jobs (processed at specific time)
+- **active list** (LIST): Currently processing jobs
+- **completed/failed** (ZSET): Terminal states
+
+## Development Commands
+
+### Prerequisites
+
+```bash
+# Check Go version (requires 1.21+)
+go version
+
+# Check Redis version (requires 6.0+)
+redis-cli --version
+```
+
+### Setup
+
+```bash
+# Install dependencies
+go mod download
+
+# Start Redis (for local testing)
+docker run -d -p 6379:6379 redis:7-alpine
+
+# Or use docker-compose
+docker-compose up -d redis
+```
+
+### Testing
+
+```bash
+# Run all tests
+go test ./...
+
+# Run tests with coverage
+go test -cover ./...
+
+# Run tests with verbose output
+go test -v ./...
+
+# Run specific test
+go test -run TestWorker_ProcessJob ./pkg/bullmq
+
+# Run integration tests (requires Redis)
+go test -tags=integration ./pkg/bullmq
+
+# Run benchmarks
+go test -bench=. ./pkg/bullmq
+```
+
+### Linting
+
+```bash
+# Run linter
+golangci-lint run
+
+# Run linter with auto-fix
+golangci-lint run --fix
+
+# Verify golangci-lint is installed
+golangci-lint --version
+```
+
+### Building
+
+```bash
+# Build library (verify it compiles)
+go build ./pkg/bullmq
+
+# Run examples
+go run examples/worker/main.go
+go run examples/producer/main.go
+```
+
+## Implementation Guidelines
+
+### Adding New Features
+
+1. **Read specification first**: Check `001-bullmq-protocol-implementation/spec.md` for requirements
+2. **Write tests first** (TDD): Create failing test before implementation
+3. **Use Lua scripts**: For any multi-key atomic operations, use/extend Lua scripts
+4. **Maintain compatibility**: Validate against Node.js BullMQ behavior
+5. **Add metrics**: Use Prometheus metrics for observability
+
+### Idempotency (CRITICAL)
+
+**Job handlers MUST be idempotent** - they may be executed multiple times for the same job.
+
+**Why Duplicate Execution Happens**:
+1. Worker crash during processing → stalled checker requeues job
+2. Lock expiration (heartbeat failure) → job requeued while still processing
+3. Network partition (rare) → multiple workers pick up same job
+
+**Library Guarantee**: At-least-once delivery (NOT exactly-once)
+
+**Idempotent Patterns**:
+
+```go
+// Pattern 1: Idempotency key check
+worker.Process(func(job *bullmq.Job) error {
+    jobID := job.ID
+
+    // Check if already processed
+    exists, _ := db.Exec("SELECT 1 FROM processed_jobs WHERE job_id = ?", jobID)
+    if exists {
+        return nil // Already processed, skip
+    }
+
+    // Process job
+    result := sendEmail(job.Data)
+
+    // Mark as processed (atomic with business logic)
+    db.Exec("INSERT INTO processed_jobs (job_id, result) VALUES (?, ?)", jobID, result)
+    return nil
+})
+
+// Pattern 2: Database unique constraint
+worker.Process(func(job *bullmq.Job) error {
+    orderID := job.Data["orderId"]
+
+    // Insert with UNIQUE constraint on order_id
+    // If duplicate, INSERT fails but operation is safe
+    _, err := db.Exec(
+        "INSERT INTO orders (order_id, status) VALUES (?, ?) ON CONFLICT DO NOTHING",
+        orderID, "processed",
+    )
+    return err
+})
+
+// Pattern 3: External system idempotency token
+worker.Process(func(job *bullmq.Job) error {
+    // Stripe, PayPal, etc. support idempotency keys
+    payment := stripe.CreateCharge(&stripe.ChargeParams{
+        Amount:         job.Data["amount"],
+        IdempotencyKey: job.ID, // Use job ID as idempotency token
+    })
+    return payment.Error
+})
+```
+
+**Non-Idempotent Example (AVOID)**:
+```go
+// BAD: Will send duplicate emails on retry
+worker.Process(func(job *bullmq.Job) error {
+    sendEmail(job.Data["to"], job.Data["subject"])
+    return nil
+})
+
+// GOOD: Check if email already sent
+worker.Process(func(job *bullmq.Job) error {
+    if !emailAlreadySent(job.ID) {
+        sendEmail(job.Data["to"], job.Data["subject"])
+        markEmailSent(job.ID)
+    }
+    return nil
+})
+```
+
+### Error Handling
+
+**Always categorize errors**:
+- **Transient**: Network errors, timeouts, Redis failures, HTTP 5xx → retry
+- **Permanent**: Validation errors, HTTP 4xx, auth errors → fail immediately
+
+```go
+// Example
+if err := processJob(job); err != nil {
+    category := CategorizeError(err)
+    if category == ErrorCategoryTransient {
+        // Retry with backoff
+        return w.retry.Retry(ctx, job, err)
+    }
+    // Fail permanently
+    return w.completer.Fail(ctx, job, err)
+}
+```
+
+### Lua Scripts
+
+- **Never modify Lua scripts** without validating against Node.js BullMQ
+- Scripts are extracted from [BullMQ repository](https://github.com/taskforcesh/bullmq/tree/master/src/scripts)
+- **Version Compatibility**:
+  - **Pinned Version**: v5.62.0 (released 2025-10-28)
+  - **Commit SHA**: `6a31e0aeab1311d7d089811ede7e11a98b6dd408`
+  - **Why**: Exact commit pinning prevents protocol drift and ensures reproducible builds
+  - **CI Validation**: Automated check compares scripts to upstream commit on every build
+- Scripts are loaded as Go constants in `pkg/bullmq/scripts/scripts.go`
+
+### Redis Keys
+
+All keys MUST use hash tags for cluster compatibility:
+
+```go
+// Correct
+key := fmt.Sprintf("bull:{%s}:wait", queueName)
+
+// Incorrect (breaks in Redis Cluster)
+key := fmt.Sprintf("bull:%s:wait", queueName)
+```
+
+### Testing Strategy
+
+1. **Unit tests**: Pure functions (error categorization, key building, backoff calculation)
+2. **Integration tests**: Redis operations (use testcontainers-go for isolated Redis)
+3. **Compatibility tests**: Validate against Node.js BullMQ (Node.js → Go, Go → Node.js)
+4. **Load tests**: Performance validation (10+ concurrent workers, 100+ jobs)
+
+## Common Tasks
+
+### Adding a New Job Option
+
+1. Add field to `JobOptions` struct in `pkg/bullmq/job.go`
+2. Update Lua script arguments if needed
+3. Add validation in job creation
+4. Add test in `pkg/bullmq/job_test.go`
+5. Update documentation
+
+### Adding a New Queue Operation
+
+1. Add method to `Queue` struct in `pkg/bullmq/queue.go`
+2. Use appropriate Lua script or Redis commands
+3. Ensure Redis Cluster compatibility (hash tags)
+4. Add integration test
+5. Document in README.md
+
+### Debugging Redis State
+
+```bash
+# Connect to Redis CLI
+redis-cli
+
+# List all queue keys
+KEYS bull:myqueue:*
+
+# Inspect job hash
+HGETALL bull:myqueue:1
+
+# Check active jobs
+LRANGE bull:myqueue:active 0 -1
+
+# Check events stream
+XRANGE bull:myqueue:events - + COUNT 10
+
+# Check lock
+GET bull:myqueue:1:lock
+TTL bull:myqueue:1:lock
+```
+
+## Configuration
+
+### Worker Configuration
+
+```go
+worker := bullmq.NewWorker(
+    "myqueue",
+    redisClient,
+    bullmq.WorkerOptions{
+        Concurrency:          10,              // Max concurrent jobs
+        LockDuration:         30 * time.Second, // Lock TTL
+        HeartbeatInterval:    15 * time.Second, // Lock heartbeat frequency
+        StalledCheckInterval: 30 * time.Second, // Stalled job check frequency
+        MaxAttempts:          3,                // Max retry attempts
+        BackoffDelay:         time.Second,      // Base backoff delay
+        WorkerID:             "",               // Auto-generated if empty: {hostname}-{pid}-{random}
+        MaxReconnectAttempts: 0,                // 0 = unlimited (default), >0 = fail after N attempts
+    },
+)
+```
+
+### Redis Connection Loss Handling
+
+**Retry Strategy**: Exponential backoff with jitter
+
+```go
+// Formula: min(initialDelay * 2^attempt * (0.8 + 0.4*rand()), maxDelay)
+// Initial: 100ms, Max: 30s
+
+Attempt 1:  100ms  ± 20% jitter = 80-120ms
+Attempt 2:  200ms  ± 20% jitter = 160-240ms
+Attempt 3:  400ms  ± 20% jitter = 320-480ms
+Attempt 4:  800ms  ± 20% jitter = 640-960ms
+Attempt 5:  1.6s   ± 20% jitter = 1.28-1.92s
+Attempt 10: 30s    (capped) ± 20% = 24-36s
+```
+
+**Behavior**:
+- Worker stops picking new jobs during disconnect
+- Active jobs continue processing (use cached data)
+- Heartbeat failures logged (jobs may stall if disconnect > 30s)
+- Background reconnection with exponential backoff
+- Resume after successful reconnect
+
+**Configuration**:
+- `MaxReconnectAttempts: 0` (default) = infinite retries, never give up
+- `MaxReconnectAttempts: 10` = fail after 10 attempts (~60s total)
+
+**WorkerID Generation**:
+- **Auto-generated** (if not specified): `{hostname}-{pid}-{random6}`
+- **Example**: `worker-node-1-12345-a1b2c3`
+- **Purpose**: Observability and debugging (appears in logs, metrics, job.WorkerID field)
+- **NOT used for**: Locking, uniqueness constraints, or business logic
+- **Override**: Provide custom WorkerID via WorkerOptions.WorkerID if needed
+
+### Important Timing Parameters
+
+- **Lock TTL**: 30s (balance recovery speed vs network tolerance)
+- **Heartbeat Interval**: 15s (50% of TTL, standard practice)
+- **Stalled Check Interval**: 30s (detects failures within ~60s)
+
+These values are based on research in `001-bullmq-protocol-implementation/research.md`.
+
+## Documentation Structure
+
+```
+/
+├── README.md                  - Public API documentation
+├── CLAUDE.md                  - This file
+├── CONTRIBUTING.md            - Contribution guidelines
+├── examples/                  - Usage examples
+│   ├── worker/                - Worker example
+│   ├── producer/              - Producer example
+│   └── queue/                 - Queue management example
+└── 001-bullmq-protocol-implementation/  - Design documents
+    ├── spec.md                - Feature specification
+    ├── plan.md                - Implementation plan
+    ├── data-model.md          - Data structures
+    ├── tasks.md               - Task breakdown
+    ├── research.md            - Design decisions
+    └── contracts/             - Redis protocol contracts
+        └── redis-protocol.md
+```
+
+## Dependencies
+
+- **github.com/redis/go-redis/v9**: Redis client
+- **github.com/google/uuid**: UUID generation for lock tokens
+- **github.com/stretchr/testify**: Testing framework
+- **github.com/testcontainers/testcontainers-go**: Integration testing with Redis
+
+## Performance Targets
+
+- **Job pickup latency**: < 10ms (moveToActive.lua)
+- **Lock heartbeat**: < 10ms per extension
+- **Stalled check**: < 100ms per cycle
+- **Worker overhead**: < 5% latency increase vs simple queue
+
+These targets are validated through load testing in `tests/load/`.
+
+## Troubleshooting
+
+### Worker not picking up jobs
+- Check queue name matches producer
+- Verify Redis connection
+- Check if queue is paused: `HGET bull:{queue}:meta paused`
+- Check if jobs are in correct queue: `LLEN bull:{queue}:wait` or `ZCARD bull:{queue}:prioritized`
+
+### Jobs getting stalled
+- Check heartbeat failures: `heartbeat_extend_failure_total` metric
+- Verify lock TTL is appropriate for job duration
+- Check network stability between worker and Redis
+- **Note**: Heartbeat failures are logged but don't stop job processing
+  - Worker continues processing even if heartbeat fails
+  - Stalled checker requeues job if lock expires (30-60s recovery)
+  - Idempotent job handlers prevent duplicate processing issues
+
+### Compatibility issues with Node.js BullMQ
+- Verify BullMQ version compatibility (currently targeting v5.x)
+- Run compatibility tests: `npm run test:compatibility`
+- Check Redis key format matches (use `redis-cli KEYS bull:*`)
+- Validate event stream format: `XRANGE bull:{queue}:events - + COUNT 10`
+
+## Further Reading
+
+- [BullMQ Documentation](https://docs.bullmq.io/)
+- [BullMQ GitHub Repository](https://github.com/taskforcesh/bullmq)
+- [Redis Lua Scripts](https://redis.io/docs/manual/programmability/eval-intro/)
+- [Redis Cluster Hash Tags](https://redis.io/docs/reference/cluster-spec/#hash-tags)

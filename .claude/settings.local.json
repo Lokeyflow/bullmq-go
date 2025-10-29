@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "defaultMode": "bypassPermissions",
+    "allow": [
+      "Bash(git checkout:*)",
+      "Bash(cd:*)",
+      "Bash(.specify/scripts/bash/check-prerequisites.sh:*)",
+      "Bash(go version)",
+      "Bash(go env GOPATH)",
+      "Bash(golangci-lint --version)",
+      "SlashCommand(/speckit.implement)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://lokeyflow.com/schemas/bullmq-job-payload.json",
+  "title": "BullMQ Job Payload",
+  "description": "Schema for video generation job payload submitted by frontend",
+  "type": "object",
+  "required": ["videoId", "userId", "script", "userImageUrls"],
+  "properties": {
+    "videoId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for the video generation job"
+    },
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "User who submitted the job"
+    },
+    "script": {
+      "type": "object",
+      "required": ["scenes"],
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Video title (optional)"
+        },
+        "scenes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 50,
+          "items": {
+            "$ref": "#/definitions/Scene"
+          }
+        }
+      }
+    },
+    "userImageUrls": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "uri",
+        "pattern": "^https?://"
+      },
+      "description": "User-provided images for scenes"
+    }
+  },
+  "definitions": {
+    "Scene": {
+      "type": "object",
+      "required": ["sceneNumber", "duration", "voiceover"],
+      "properties": {
+        "sceneNumber": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Scene sequence number"
+        },
+        "duration": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 60,
+          "description": "Scene duration in seconds"
+        },
+        "voiceover": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500,
+          "description": "Voiceover text for this scene"
+        },
+        "imagePrompt": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "AI image generation prompt (optional, future use)"
+        }
+      }
+    }
+  }
+}
