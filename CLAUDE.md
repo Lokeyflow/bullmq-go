@@ -82,10 +82,18 @@ redis-cli --version
 go mod download
 
 # Start Redis (for local testing)
+# Option 1: Docker
 docker run -d -p 6379:6379 redis:7-alpine
 
-# Or use docker-compose
+# Option 2: Docker Compose
 docker-compose up -d redis
+
+# Option 3: Rancher Desktop (Kubernetes)
+kubectl run redis --image=redis:7-alpine --port=6379
+kubectl port-forward pod/redis 6379:6379
+
+# Option 4: Rancher Desktop (nerdctl)
+nerdctl run -d -p 6379:6379 redis:7-alpine
 ```
 
 ### Testing

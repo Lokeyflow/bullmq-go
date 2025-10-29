@@ -510,7 +510,15 @@ cd bullmq-go
 go mod download
 
 # Start Redis (for testing)
+# Option 1: Docker
 docker run -d -p 6379:6379 redis:7-alpine
+
+# Option 2: Rancher Desktop (Kubernetes)
+kubectl run redis --image=redis:7-alpine --port=6379
+kubectl port-forward pod/redis 6379:6379
+
+# Option 3: Rancher Desktop (nerdctl)
+nerdctl run -d -p 6379:6379 redis:7-alpine
 
 # Run tests
 go test ./...
