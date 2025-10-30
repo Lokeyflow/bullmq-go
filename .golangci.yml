@@ -1,0 +1,72 @@
+# golangci-lint configuration for BullMQ Go client library
+# https://golangci-lint.run/usage/configuration/
+
+run:
+  timeout: 5m
+  tests: true
+  modules-download-mode: readonly
+
+linters:
+  enable:
+    - errcheck      # Check for unchecked errors
+    - gosimple      # Simplify code
+    - govet         # Vet examines Go source code
+    - ineffassign   # Detect ineffectual assignments
+    - staticcheck   # Static analysis
+    - unused        # Check for unused constants, variables, functions
+    - gofmt         # Check formatting
+    - goimports     # Check imports formatting
+    - misspell      # Check spelling
+    - gocritic      # Opinionated linter
+    - godot         # Check comments end in periods
+    - gocyclo       # Cyclomatic complexity
+    - dupl          # Code duplication
+    - gosec         # Security issues
+    - unconvert     # Unnecessary type conversions
+    - unparam       # Unused function parameters
+    - whitespace    # Whitespace issues
+
+linters-settings:
+  errcheck:
+    check-blank: true
+    check-type-assertions: true
+
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+
+  gocyclo:
+    min-complexity: 15
+
+  dupl:
+    threshold: 100
+
+  gosec:
+    excludes:
+      - G404  # Use of weak random number generator (we use crypto/rand for security-critical operations)
+
+issues:
+  exclude-rules:
+    # Exclude linters for test files
+    - path: _test\.go
+      linters:
+        - dupl
+        - gosec
+        - gocyclo
+
+    # Exclude linters for scripts/
+    - path: scripts/
+      linters:
+        - gosec
+
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true

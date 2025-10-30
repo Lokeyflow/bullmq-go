@@ -1,0 +1,178 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/taskforcesh/bullmq/blob/master/event-schema.json",
+  "title": "BullMQ Event Stream Schema",
+  "description": "JSON Schema for BullMQ event stream entries stored in Redis stream (bull:{queue}:events). Based on BullMQ v5.62.0 (commit 6a31e0aeab1311d7d089811ede7e11a98b6dd408). All field values are STRINGS per Redis stream semantics.",
+  "type": "object",
+  "required": [
+    "event",
+    "jobId"
+  ],
+  "properties": {
+    "event": {
+      "type": "string",
+      "description": "Event type identifier",
+      "enum": [
+        "waiting",
+        "active",
+        "progress",
+        "completed",
+        "failed",
+        "stalled",
+        "retry",
+        "paused",
+        "resumed",
+        "cleaned"
+      ]
+    },
+    "jobId": {
+      "type": "string",
+      "description": "Job ID associated with this event",
+      "examples": [
+        "1",
+        "42",
+        "user-123-task-456"
+      ]
+    },
+    "name": {
+      "type": "string",
+      "description": "Job name/type. Present in most events for context.",
+      "examples": [
+        "send-email",
+        "process-image",
+        "generate-report"
+      ]
+    },
+    "attemptsMade": {
+      "type": "string",
+      "description": "Number of attempts made (stringified). Present in retry, failed events.",
+      "pattern": "^[0-9]+$",
+      "examples": [
+        "1",
+        "2",
+        "3"
+      ]
+    },
+    "data": {
+      "type": "string",
+      "description": "Job payload as JSON string. Present in waiting event.",
+      "contentMediaType": "application/json",
+      "examples": [
+        "{\"userId\":\"123\",\"action\":\"send-email\"}"
+      ]
+    },
+    "opts": {
+      "type": "string",
+      "description": "Job options as JSON string. Present in waiting event.",
+      "contentMediaType": "application/json",
+      "examples": [
+        "{\"attempts\":3,\"backoff\":{\"type\":\"exponential\",\"delay\":1000}}"
+      ]
+    },
+    "prev": {
+      "type": "string",
+      "description": "Previous job state. Present in state transition events.",
+      "enum": [
+        "waiting",
+        "active",
+        "prioritized",
+        "delayed",
+        "stalled"
+      ],
+      "examples": [
+        "waiting",
+        "active"
+      ]
+    },
+    "progress": {
+      "type": "string",
+      "description": "Job progress percentage (stringified 0-100). Present in progress events.",
+      "pattern": "^[0-9]+(\\.[0-9]+)?$",
+      "examples": [
+        "25",
+        "50",
+        "75.5",
+        "100"
+      ]
+    },
+    "returnvalue": {
+      "type": "string",
+      "description": "Job result as JSON string. Present in completed event.",
+      "contentMediaType": "application/json",
+      "examples": [
+        "{\"sent\":true,\"messageId\":\"abc123\"}"
+      ]
+    },
+    "failedReason": {
+      "type": "string",
+      "description": "Error message. Present in failed event.",
+      "examples": [
+        "Connection timeout after 30s",
+        "Invalid email address"
+      ]
+    },
+    "stacktrace": {
+      "type": "string",
+      "description": "JSON array of stack traces. Present in failed event.",
+      "contentMediaType": "application/json",
+      "examples": [
+        "[\"Error: Connection timeout\n    at processJob (worker.js:42)\"]"
+      ]
+    },
+    "delay": {
+      "type": "string",
+      "description": "Retry delay in milliseconds (stringified). Present in retry event.",
+      "pattern": "^[0-9]+$",
+      "examples": [
+        "1000",
+        "2000",
+        "4000"
+      ]
+    }
+  },
+  "examples": [
+    {
+      "event": "waiting",
+      "jobId": "1",
+      "name": "send-email",
+      "data": "{\"to\":\"user@example.com\",\"subject\":\"Hello\"}",
+      "opts": "{\"attempts\":3,\"backoff\":{\"type\":\"exponential\",\"delay\":1000}}"
+    },
+    {
+      "event": "active",
+      "jobId": "1",
+      "name": "send-email",
+      "prev": "waiting"
+    },
+    {
+      "event": "progress",
+      "jobId": "1",
+      "name": "send-email",
+      "progress": "50"
+    },
+    {
+      "event": "completed",
+      "jobId": "1",
+      "name": "send-email",
+      "returnvalue": "{\"sent\":true,\"messageId\":\"abc123\"}",
+      "prev": "active"
+    },
+    {
+      "event": "failed",
+      "jobId": "2",
+      "name": "process-image",
+      "failedReason": "Connection timeout after 30s",
+      "attemptsMade": "2",
+      "stacktrace": "[\"Error: Connection timeout\n    at fetch (http.js:123)\"]",
+      "prev": "active"
+    }
+  ],
+  "notes": [
+    "Events emitted to Redis stream: bull:{queue}:events",
+    "Stream retention: MAXLEN ~10000 (approximately 10,000 most recent events)",
+    "Command: XADD bull:{queue}:events MAXLEN ~ 10000 * field1 value1...",
+    "All field values are STRINGS per Redis stream semantics",
+    "Event emission is best-effort (not transactional)",
+    "Event format must match Node.js BullMQ exactly for compatibility"
+  ]
+}
