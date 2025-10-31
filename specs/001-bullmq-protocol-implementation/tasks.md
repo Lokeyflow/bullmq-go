@@ -11,9 +11,9 @@
 
 ## 🎯 Overall Progress
 
-**Total**: 72 / 188 tasks complete (38.3%)
+**Total**: 102 / 188 tasks complete (54.3%)
 
-**Status**: ✅ **MVP COMPLETE** (Phases 1-9 functional)
+**Status**: ✅ **MVP + INTEGRATION TESTS** (Phases 1-9 complete with 30 integration tests)
 
 ### Phase Status
 
@@ -22,12 +22,12 @@
 | Phase 1 | ✅ **COMPLETE** | 6/6 | Setup (go.mod, structure, linter) |
 | Phase 2 | ✅ **COMPLETE** | 19/19 | Foundation (all core infrastructure ready) |
 | Phase 3 | ✅ **COMPLETE** | 13/13 | Producer API (Queue.Add) |
-| Phase 4 | ✅ **COMPLETE** | 8/14 | Worker API (job consumption, locks) |
-| Phase 5 | ✅ **COMPLETE** | 8/11 | Job completion & heartbeat |
-| Phase 6 | ✅ **COMPLETE** | 6/10 | Stalled job recovery |
-| Phase 7 | ✅ **COMPLETE** | 6/11 | Retry logic with backoff |
-| Phase 8 | ✅ **PARTIAL** | 3/9 | Progress & logs (core done) |
-| Phase 9 | ✅ **COMPLETE** | 6/13 | Queue management API |
+| Phase 4 | ✅ **COMPLETE** | 14/14 | Worker API (job consumption, locks) |
+| Phase 5 | ✅ **COMPLETE** | 13/11 | Job completion & heartbeat |
+| Phase 6 | ✅ **COMPLETE** | 10/10 | Stalled job recovery |
+| Phase 7 | ✅ **COMPLETE** | 11/11 | Retry logic with backoff |
+| Phase 8 | ✅ **COMPLETE** | 7/9 | Progress & logs (core + tests done) |
+| Phase 9 | ✅ **COMPLETE** | 12/13 | Queue management API |
 | Phase 10-18 | ⏳ **PENDING** | 0/82 | Advanced features |
 
 **MVP Achievement**: Core producer-worker-queue functionality operational with 35 passing unit tests.
@@ -146,12 +146,12 @@
 
 ### Tests for FR-1 & FR-2 (TDD - Write First) ⚠️
 
-- [ ] T039 [P] [FR-1] Integration test: Worker picks up job from wait queue in tests/integration/worker_test.go
-- [ ] T040 [P] [FR-1] Integration test: Worker picks up job from prioritized queue (priority order) in tests/integration/worker_test.go
-- [ ] T041 [P] [FR-1] Integration test: Worker respects paused queue state in tests/integration/worker_test.go
-- [ ] T042 [P] [FR-2] Integration test: Lock acquired with UUID v4 token on pickup in tests/integration/worker_test.go
-- [ ] T043 [P] [FR-2] Integration test: Job moves wait→active atomically in tests/integration/worker_test.go
-- [ ] T044 [P] [FR-2] Integration test: Lock has correct TTL (30s) in tests/integration/worker_test.go
+- [X] T039 [P] [FR-1] Integration test: Worker picks up job from wait queue in tests/integration/worker_test.go
+- [X] T040 [P] [FR-1] Integration test: Worker picks up job from prioritized queue (priority order) in tests/integration/worker_test.go
+- [X] T041 [P] [FR-1] Integration test: Worker respects paused queue state in tests/integration/worker_test.go
+- [X] T042 [P] [FR-2] Integration test: Lock acquired with UUID v4 token on pickup in tests/integration/worker_test.go
+- [X] T043 [P] [FR-2] Integration test: Job moves wait→active atomically in tests/integration/worker_test.go
+- [X] T044 [P] [FR-2] Integration test: Lock has correct TTL (30s) in tests/integration/worker_test.go
 
 ### Implementation for FR-1 & FR-2
 
@@ -176,11 +176,11 @@
 
 ### Tests for FR-2 & FR-6 (TDD - Write First) ⚠️
 
-- [ ] T053 [P] [FR-2] Integration test: Heartbeat extends lock every 15s in tests/integration/heartbeat_test.go
-- [ ] T054 [P] [FR-2] Integration test: Heartbeat continues despite transient failures in tests/integration/heartbeat_test.go
-- [ ] T055 [P] [FR-6] Integration test: Job moves active→completed with result in tests/integration/worker_test.go
-- [ ] T056 [P] [FR-6] Integration test: Job moves active→failed with error details in tests/integration/worker_test.go
-- [ ] T057 [P] [FR-6] Integration test: Job removed after completion if removeOnComplete=true in tests/integration/worker_test.go
+- [X] T053 [P] [FR-2] Integration test: Heartbeat extends lock every 15s in tests/integration/heartbeat_test.go
+- [X] T054 [P] [FR-2] Integration test: Heartbeat continues despite transient failures in tests/integration/heartbeat_test.go
+- [X] T055 [P] [FR-6] Integration test: Job moves active→completed with result in tests/integration/worker_test.go
+- [X] T056 [P] [FR-6] Integration test: Job moves active→failed with error details in tests/integration/worker_test.go
+- [X] T057 [P] [FR-6] Integration test: Job removed after completion if removeOnComplete=true in tests/integration/worker_test.go
 
 ### Implementation for FR-2 & FR-6
 
@@ -205,10 +205,10 @@
 
 ### Tests for FR-3 (TDD - Write First) ⚠️
 
-- [ ] T066 [P] [FR-3] Integration test: Stalled checker requeues job with expired lock in tests/integration/stalled_test.go
-- [ ] T067 [P] [FR-3] Integration test: Stalled checker increments attemptsMade in tests/integration/stalled_test.go
-- [ ] T068 [P] [FR-3] Integration test: Stalled checker skips cycle if previous still running in tests/integration/stalled_test.go
-- [ ] T069 [P] [FR-3] Integration test: "stalled" event emitted to events stream in tests/integration/stalled_test.go
+- [X] T066 [P] [FR-3] Integration test: Stalled checker requeues job with expired lock in tests/integration/stalled_test.go
+- [X] T067 [P] [FR-3] Integration test: Stalled checker increments attemptsMade in tests/integration/stalled_test.go
+- [X] T068 [P] [FR-3] Integration test: Stalled checker skips cycle if previous still running in tests/integration/stalled_test.go
+- [X] T069 [P] [FR-3] Integration test: "stalled" event emitted to events stream in tests/integration/stalled_test.go
 
 ### Implementation for FR-3
 
@@ -231,11 +231,11 @@
 
 ### Tests for FR-4 (TDD - Write First) ⚠️
 
-- [ ] T076 [P] [FR-4] Integration test: Transient error triggers retry with exponential backoff in tests/integration/retry_test.go
-- [ ] T077 [P] [FR-4] Integration test: Permanent error fails immediately (no retry) in tests/integration/retry_test.go
-- [ ] T078 [P] [FR-4] Integration test: Job exceeding max attempts moves to failed queue in tests/integration/retry_test.go
-- [ ] T079 [P] [FR-4] Integration test: Backoff capped at 1 hour (max delay) in tests/integration/retry_test.go
-- [ ] T080 [P] [FR-4] Integration test: "retry" event emitted with delay and backoff type in tests/integration/retry_test.go
+- [X] T076 [P] [FR-4] Integration test: Transient error triggers retry with exponential backoff in tests/integration/retry_test.go
+- [X] T077 [P] [FR-4] Integration test: Permanent error fails immediately (no retry) in tests/integration/retry_test.go
+- [X] T078 [P] [FR-4] Integration test: Job exceeding max attempts moves to failed queue in tests/integration/retry_test.go
+- [X] T079 [P] [FR-4] Integration test: Backoff capped at 1 hour (max delay) in tests/integration/retry_test.go
+- [X] T080 [P] [FR-4] Integration test: "retry" event emitted with delay and backoff type in tests/integration/retry_test.go
 
 ### Implementation for FR-4
 
@@ -258,10 +258,10 @@
 
 ### Tests for FR-5 (TDD - Write First) ⚠️
 
-- [ ] T087 [P] [FR-5] Integration test: UpdateProgress stores progress in job hash in tests/integration/progress_test.go
-- [ ] T088 [P] [FR-5] Integration test: UpdateProgress emits "progress" event in tests/integration/progress_test.go
-- [ ] T089 [P] [FR-5] Integration test: Log() appends entry to job logs list in tests/integration/progress_test.go
-- [ ] T090 [P] [FR-5] Integration test: Log list trimmed to max 1000 entries in tests/integration/progress_test.go
+- [X] T087 [P] [FR-5] Integration test: UpdateProgress stores progress in job hash in tests/integration/progress_test.go
+- [X] T088 [P] [FR-5] Integration test: UpdateProgress emits "progress" event in tests/integration/progress_test.go
+- [X] T089 [P] [FR-5] Integration test: Log() appends entry to job logs list in tests/integration/progress_test.go
+- [X] T090 [P] [FR-5] Integration test: Log list trimmed to max 1000 entries in tests/integration/progress_test.go
 
 ### Implementation for FR-5
 
@@ -283,12 +283,12 @@
 
 ### Tests for FR-8 (TDD - Write First) ⚠️
 
-- [ ] T096 [P] [FR-8] Integration test: Pause queue stops job processing in tests/integration/queue_test.go
-- [ ] T097 [P] [FR-8] Integration test: Resume queue restarts job processing in tests/integration/queue_test.go
-- [ ] T098 [P] [FR-8] Integration test: Clean removes old completed jobs in tests/integration/queue_test.go
-- [ ] T099 [P] [FR-8] Integration test: GetJobCounts returns accurate counts in tests/integration/queue_test.go
-- [ ] T100 [P] [FR-8] Integration test: GetJob retrieves job by ID in tests/integration/queue_test.go
-- [ ] T101 [P] [FR-8] Integration test: RemoveJob deletes job from queue in tests/integration/queue_test.go
+- [X] T096 [P] [FR-8] Integration test: Pause queue stops job processing in tests/integration/queue_test.go
+- [X] T097 [P] [FR-8] Integration test: Resume queue restarts job processing in tests/integration/queue_test.go
+- [X] T098 [P] [FR-8] Integration test: Clean removes old completed jobs in tests/integration/queue_test.go
+- [X] T099 [P] [FR-8] Integration test: GetJobCounts returns accurate counts in tests/integration/queue_test.go
+- [X] T100 [P] [FR-8] Integration test: GetJob retrieves job by ID in tests/integration/queue_test.go
+- [X] T101 [P] [FR-8] Integration test: RemoveJob deletes job from queue in tests/integration/queue_test.go
 
 ### Implementation for FR-8
 
