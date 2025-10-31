@@ -110,13 +110,13 @@ func TestQueue_CleanRemovesOldJobs(t *testing.T) {
 		jobID, _ := queue.Add(ctx, "test-job", map[string]interface{}{"index": i}, bullmq.JobOptions{Attempts: 3, Backoff: bullmq.BackoffConfig{Type: "exponential", Delay: 1000}})
 
 		// Manually move to completed with old timestamp
-		completedKey := "bull:" + queueName + ":completed"
+		completedKey := "bull:{" + queueName + "}:completed"
 		oldTimestamp := time.Now().Add(-2 * time.Hour).UnixMilli()
 		rdb.ZAdd(ctx, completedKey, redis.Z{Score: float64(oldTimestamp), Member: jobID})
 	}
 
 	// Verify 5 completed jobs
-	completedKey := "bull:" + queueName + ":completed"
+	completedKey := "bull:{" + queueName + "}:completed"
 	count, _ := rdb.ZCard(ctx, completedKey).Result()
 	assert.Equal(t, int64(5), count)
 
@@ -208,7 +208,7 @@ func TestQueue_RemoveJobDeletes(t *testing.T) {
 	assert.Nil(t, job)
 
 	// Verify removed from wait queue
-	waitKey := "bull:" + queueName + ":wait"
+	waitKey := "bull:{" + queueName + "}:wait"
 	waitLen, _ := rdb.LLen(ctx, waitKey).Result()
 	assert.Equal(t, int64(0), waitLen)
 }

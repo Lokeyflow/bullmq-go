@@ -30,7 +30,7 @@ func TestHeartbeat_ExtendsLockEvery15s(t *testing.T) {
 	opts.LockDuration = 30 * time.Second
 	worker := bullmq.NewWorker(queueName, rdb, opts)
 
-	lockKey := "bull:" + queueName + ":" + job.ID + ":lock"
+	lockKey := "bull:{" + queueName + "}:" + job.ID + ":lock"
 	started := make(chan bool, 1)
 
 	worker.Process(func(job *bullmq.Job) error {

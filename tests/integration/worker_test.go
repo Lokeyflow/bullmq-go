@@ -30,7 +30,7 @@ func TestWorker_PickupFromWaitQueue(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify job in wait queue
-	waitLen, _ := rdb.LLen(ctx, "bull:"+queueName+":wait").Result()
+	waitLen, _ := rdb.LLen(ctx, "bull:{"+queueName+"}:wait").Result()
 	assert.Equal(t, int64(1), waitLen)
 
 	// Create worker
@@ -174,7 +174,7 @@ func TestWorker_LockAcquiredWithUUIDv4(t *testing.T) {
 	select {
 	case <-started:
 		// Check lock exists
-		lockKey := "bull:" + queueName + ":" + job.ID + ":lock"
+		lockKey := "bull:{" + queueName + "}:" + job.ID + ":lock"
 		lockToken, err := rdb.Get(ctx, lockKey).Result()
 		require.NoError(t, err)
 
@@ -202,7 +202,7 @@ func TestWorker_AtomicWaitToActive(t *testing.T) {
 	jobID := job.ID
 
 	// Verify job in wait queue
-	waitKey := "bull:" + queueName + ":wait"
+	waitKey := "bull:{" + queueName + "}:wait"
 	waitLen, _ := rdb.LLen(ctx, waitKey).Result()
 	assert.Equal(t, int64(1), waitLen)
 
@@ -225,7 +225,7 @@ func TestWorker_AtomicWaitToActive(t *testing.T) {
 		assert.Equal(t, jobID, id)
 
 		// Verify job moved to active
-		activeKey := "bull:" + queueName + ":active"
+		activeKey := "bull:{" + queueName + "}:active"
 		activeLen, _ := rdb.LLen(ctx, activeKey).Result()
 		assert.Equal(t, int64(1), activeLen, "Job should be in active queue")
 
@@ -270,7 +270,7 @@ func TestWorker_LockTTL(t *testing.T) {
 	select {
 	case <-started:
 		// Check lock TTL
-		lockKey := "bull:" + queueName + ":" + job.ID + ":lock"
+		lockKey := "bull:{" + queueName + "}:" + job.ID + ":lock"
 		ttl, err := rdb.TTL(ctx, lockKey).Result()
 		require.NoError(t, err)
 
@@ -310,13 +310,13 @@ func TestWorker_MoveToCompleted(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	// Verify job in completed set
-	completedKey := "bull:" + queueName + ":completed"
+	completedKey := "bull:{" + queueName + "}:completed"
 	score, err := rdb.ZScore(ctx, completedKey, jobID).Result()
 	require.NoError(t, err)
 	assert.Greater(t, score, float64(0), "Job should be in completed set with timestamp")
 
 	// Verify job removed from active
-	activeKey := "bull:" + queueName + ":active"
+	activeKey := "bull:{" + queueName + "}:active"
 	activeLen, _ := rdb.LLen(ctx, activeKey).Result()
 	assert.Equal(t, int64(0), activeLen, "Job should be removed from active queue")
 }
@@ -350,13 +350,13 @@ func TestWorker_MoveToFailed(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	// Verify job in failed set
-	failedKey := "bull:" + queueName + ":failed"
+	failedKey := "bull:{" + queueName + "}:failed"
 	score, err := rdb.ZScore(ctx, failedKey, jobID).Result()
 	require.NoError(t, err)
 	assert.Greater(t, score, float64(0), "Job should be in failed set")
 
 	// Verify failedReason stored
-	jobKey := "bull:" + queueName + ":" + jobID
+	jobKey := "bull:{" + queueName + "}:" + jobID
 	failedReason, err := rdb.HGet(ctx, jobKey, "failedReason").Result()
 	require.NoError(t, err)
 	assert.Contains(t, failedReason, "test error")
@@ -391,13 +391,13 @@ func TestWorker_RemoveOnComplete(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	// Verify job NOT in completed set
-	completedKey := "bull:" + queueName + ":completed"
+	completedKey := "bull:{" + queueName + "}:completed"
 	exists, err := rdb.ZScore(ctx, completedKey, jobID).Result()
 	assert.Error(t, err, "Job should NOT be in completed set")
 	assert.Equal(t, float64(0), exists)
 
 	// Verify job hash removed
-	jobKey := "bull:" + queueName + ":" + jobID
+	jobKey := "bull:{" + queueName + "}:" + jobID
 	jobExists, _ := rdb.Exists(ctx, jobKey).Result()
 	assert.Equal(t, int64(0), jobExists, "Job hash should be removed")
 }

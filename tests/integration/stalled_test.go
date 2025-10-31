@@ -26,9 +26,9 @@ func TestStalled_RequeuesExpiredLock(t *testing.T) {
 	jobID := job.ID
 
 	// Manually simulate stalled job: move to active with expired lock
-	waitKey := "bull:" + queueName + ":wait"
-	activeKey := "bull:" + queueName + ":active"
-	lockKey := "bull:" + queueName + ":" + jobID + ":lock"
+	waitKey := "bull:{" + queueName + "}:wait"
+	activeKey := "bull:{" + queueName + "}:active"
+	lockKey := "bull:{" + queueName + "}:" + jobID + ":lock"
 
 	// Move job to active
 	rdb.RPop(ctx, waitKey)
@@ -78,9 +78,9 @@ func TestStalled_IncrementsAttemptsMade(t *testing.T) {
 	jobID := job.ID
 
 	// Manually create stalled job
-	activeKey := "bull:" + queueName + ":active"
-	lockKey := "bull:" + queueName + ":" + jobID + ":lock"
-	jobKey := "bull:" + queueName + ":" + jobID
+	activeKey := "bull:{" + queueName + "}:active"
+	lockKey := "bull:{" + queueName + "}:" + jobID + ":lock"
+	jobKey := "bull:{" + queueName + "}:" + jobID
 
 	rdb.RPush(ctx, activeKey, jobID)
 	rdb.Set(ctx, lockKey, "token", 1*time.Second)
@@ -135,8 +135,8 @@ func TestStalled_EmitsEvent(t *testing.T) {
 	jobID := job.ID
 
 	// Create stalled job
-	activeKey := "bull:" + queueName + ":active"
-	lockKey := "bull:" + queueName + ":" + jobID + ":lock"
+	activeKey := "bull:{" + queueName + "}:active"
+	lockKey := "bull:{" + queueName + "}:" + jobID + ":lock"
 
 	rdb.RPush(ctx, activeKey, jobID)
 	rdb.Set(ctx, lockKey, "token", 1*time.Second)
@@ -159,7 +159,7 @@ func TestStalled_EmitsEvent(t *testing.T) {
 	time.Sleep(5 * time.Second)
 
 	// Check events stream for "stalled" event
-	eventsKey := "bull:" + queueName + ":events"
+	eventsKey := "bull:{" + queueName + "}:events"
 	events, err := rdb.XRange(ctx, eventsKey, "-", "+").Result()
 	require.NoError(t, err)
 

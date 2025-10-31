@@ -45,7 +45,7 @@ func TestProgress_StoresInJobHash(t *testing.T) {
 	<-progressUpdated
 
 	// Verify progress stored in job hash
-	jobKey := "bull:" + queueName + ":" + jobID
+	jobKey := "bull:{" + queueName + "}:" + jobID
 	progress, err := rdb.HGet(ctx, jobKey, "progress").Result()
 	require.NoError(t, err)
 	assert.Equal(t, "50", progress, "Progress should be stored in job hash")
@@ -80,7 +80,7 @@ func TestProgress_EmitsProgressEvent(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	// Check events stream for "progress" event
-	eventsKey := "bull:" + queueName + ":events"
+	eventsKey := "bull:{" + queueName + "}:events"
 	events, err := rdb.XRange(ctx, eventsKey, "-", "+").Result()
 	require.NoError(t, err)
 
@@ -130,7 +130,7 @@ func TestProgress_AppendsLog(t *testing.T) {
 	<-logAdded
 
 	// Verify logs stored
-	logsKey := "bull:" + queueName + ":" + jobID + ":logs"
+	logsKey := "bull:{" + queueName + "}:" + jobID + ":logs"
 	logs, err := rdb.LRange(ctx, logsKey, 0, -1).Result()
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, len(logs), 2, "At least 2 log entries should exist")
@@ -172,7 +172,7 @@ func TestProgress_LogTrimmedTo1000(t *testing.T) {
 	time.Sleep(3 * time.Second)
 
 	// Verify logs trimmed to max 1000
-	logsKey := "bull:" + queueName + ":" + jobID + ":logs"
+	logsKey := "bull:{" + queueName + "}:" + jobID + ":logs"
 	logCount, err := rdb.LLen(ctx, logsKey).Result()
 	require.NoError(t, err)
 	assert.LessOrEqual(t, logCount, int64(1000), "Log list should be trimmed to max 1000 entries")

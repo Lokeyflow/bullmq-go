@@ -48,13 +48,13 @@ func TestRetry_TransientErrorWithBackoff(t *testing.T) {
 	time.Sleep(5 * time.Second)
 
 	// Verify attemptsMade
-	jobKey := "bull:" + queueName + ":" + jobID
+	jobKey := "bull:{" + queueName + "}:" + jobID
 	atm, err := rdb.HGet(ctx, jobKey, "atm").Result()
 	require.NoError(t, err)
 	assert.Equal(t, "3", atm, "Job should have 3 attempts")
 
 	// Verify job completed
-	completedKey := "bull:" + queueName + ":completed"
+	completedKey := "bull:{" + queueName + "}:completed"
 	_, err = rdb.ZScore(ctx, completedKey, jobID).Result()
 	require.NoError(t, err, "Job should be in completed set")
 }
@@ -95,7 +95,7 @@ func TestRetry_PermanentErrorNoRetry(t *testing.T) {
 	assert.Equal(t, 1, attemptCount, "Permanent error should not trigger retry")
 
 	// Verify job in failed set
-	failedKey := "bull:" + queueName + ":failed"
+	failedKey := "bull:{" + queueName + "}:failed"
 	_, err = rdb.ZScore(ctx, failedKey, jobID).Result()
 	require.NoError(t, err, "Job should be in failed set")
 }
@@ -131,12 +131,12 @@ func TestRetry_ExceedMaxAttempts(t *testing.T) {
 	time.Sleep(5 * time.Second)
 
 	// Verify job in failed set
-	failedKey := "bull:" + queueName + ":failed"
+	failedKey := "bull:{" + queueName + "}:failed"
 	_, err = rdb.ZScore(ctx, failedKey, jobID).Result()
 	require.NoError(t, err, "Job should be in failed set after exceeding max attempts")
 
 	// Verify attemptsMade = 2
-	jobKey := "bull:" + queueName + ":" + jobID
+	jobKey := "bull:{" + queueName + "}:" + jobID
 	atm, err := rdb.HGet(ctx, jobKey, "atm").Result()
 	require.NoError(t, err)
 	assert.Equal(t, "2", atm, "Job should have exactly 2 attempts")
@@ -163,7 +163,7 @@ func TestRetry_BackoffCappedAt1Hour(t *testing.T) {
 	require.NoError(t, err)
 
 	// Manually set attemptsMade to high number
-	jobKey := "bull:" + queueName + ":" + job.ID
+	jobKey := "bull:{" + queueName + "}:" + job.ID
 	rdb.HSet(ctx, jobKey, "atm", "12") // 12 attempts = 2^12 * 1s = 4096s (should be capped at 3600s)
 
 	// Check that delayed timestamp respects 1 hour cap
@@ -209,7 +209,7 @@ func TestRetry_EmitsRetryEvent(t *testing.T) {
 	time.Sleep(3 * time.Second)
 
 	// Check events stream for "retry" event
-	eventsKey := "bull:" + queueName + ":events"
+	eventsKey := "bull:{" + queueName + "}:events"
 	events, err := rdb.XRange(ctx, eventsKey, "-", "+").Result()
 	require.NoError(t, err)
 
