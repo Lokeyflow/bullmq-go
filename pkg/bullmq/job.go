@@ -56,44 +56,40 @@ var DefaultJobOptions = JobOptions{
 	RemoveOnFail:     false,
 }
 
-// UpdateProgress updates job progress (0-100)
+// UpdateProgress atomically updates job progress (0-100) using Lua script
+// The Lua script ensures atomicity and automatically emits a progress event
 func (j *Job) UpdateProgress(progress int) error {
 	if progress < 0 || progress > 100 {
 		return &ValidationError{Field: "progress", Message: "must be between 0 and 100"}
 	}
+
+	// Update local state
 	j.Progress = progress
 
-	// Update in Redis if client available
+	// Update in Redis atomically if client available
 	if j.redisClient != nil && j.queueName != "" {
 		ctx := context.Background()
-		kb := NewKeyBuilder(j.queueName)
-		j.redisClient.HSet(ctx, kb.Job(j.ID), "progress", progress)
+		updater := NewProgressUpdater(j.queueName, j.redisClient)
 
-		// Emit progress event
-		if j.emitter != nil {
-			j.emitter.EmitProgress(ctx, j, progress)
+		_, err := updater.UpdateProgress(ctx, j.ID, progress)
+		if err != nil {
+			return err
 		}
 	}
 
 	return nil
 }
 
-// Log appends a log entry to the job
+// Log atomically appends a log entry to the job using Lua script
+// The Lua script automatically trims logs to max 1000 entries (LIFO)
 func (j *Job) Log(message string) error {
 	if j.redisClient == nil || j.queueName == "" {
 		return nil // Silently skip if not connected
 	}
 
 	ctx := context.Background()
-	kb := NewKeyBuilder(j.queueName)
-	logsKey := kb.Logs(j.ID)
+	logManager := NewLogManager(j.queueName, j.redisClient, DefaultMaxLogs)
 
-	// Append log entry with timestamp
-	logEntry := map[string]interface{}{
-		"timestamp": time.Now().UnixMilli(),
-		"message":   message,
-	}
-
-	// Add to list (RPUSH for chronological order)
-	return j.redisClient.RPush(ctx, logsKey, logEntry).Err()
+	_, err := logManager.AddLog(ctx, j.ID, message)
+	return err
 }

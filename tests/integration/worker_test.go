@@ -23,7 +23,7 @@ func TestWorker_PickupFromWaitQueue(t *testing.T) {
 	queue := bullmq.NewQueue(queueName, rdb)
 
 	// Add job to queue
-	jobID, err := queue.Add(ctx, "test-job", map[string]interface{}{"task": "test"}, bullmq.JobOptions{
+	job, err := queue.Add(ctx, "test-job", map[string]interface{}{"task": "test"}, bullmq.JobOptions{
 		Attempts: 3,
 		Backoff:  bullmq.BackoffConfig{Type: "exponential", Delay: 1000},
 	})
@@ -48,13 +48,13 @@ func TestWorker_PickupFromWaitQueue(t *testing.T) {
 	// Wait for job processing
 	select {
 	case id := <-processed:
-		assert.Equal(t, jobID, id)
+		assert.Equal(t, job.ID, id)
 	case <-time.After(2 * time.Second):
 		t.Fatal("Timeout waiting for job processing")
 	}
 
 	// Verify job moved from wait to active (then completed)
-	waitLen, _ = rdb.LLen(ctx, "bull:"+queueName+":wait").Result()
+	waitLen, _ = rdb.LLen(ctx, "bull:{"+queueName+"}:wait").Result()
 	assert.Equal(t, int64(0), waitLen)
 }
 
@@ -72,7 +72,7 @@ func TestWorker_PickupPriorityOrder(t *testing.T) {
 	_, err := queue.Add(ctx, "low-priority", map[string]interface{}{"priority": 1}, bullmq.JobOptions{Priority: 1})
 	require.NoError(t, err)
 
-	highPriorityID, err := queue.Add(ctx, "high-priority", map[string]interface{}{"priority": 10}, bullmq.JobOptions{Priority: 10})
+	highPriorityJob, err := queue.Add(ctx, "high-priority", map[string]interface{}{"priority": 10}, bullmq.JobOptions{Priority: 10})
 	require.NoError(t, err)
 
 	// Create worker
@@ -90,7 +90,7 @@ func TestWorker_PickupPriorityOrder(t *testing.T) {
 	// First job should be high priority
 	select {
 	case id := <-processedIDs:
-		assert.Equal(t, highPriorityID, id, "High priority job should be processed first")
+		assert.Equal(t, highPriorityJob.ID, id, "High priority job should be processed first")
 	case <-time.After(2 * time.Second):
 		t.Fatal("Timeout waiting for first job")
 	}

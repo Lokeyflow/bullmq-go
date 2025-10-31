@@ -36,9 +36,11 @@ func ValidateJobOptions(opts JobOptions) error {
 		}
 	}
 
-	// Validate backoff
-	if err := ValidateBackoffConfig(opts.Backoff); err != nil {
-		return err
+	// Validate backoff only if specified (non-empty type)
+	if opts.Backoff.Type != "" {
+		if err := ValidateBackoffConfig(opts.Backoff); err != nil {
+			return err
+		}
 	}
 
 	return nil

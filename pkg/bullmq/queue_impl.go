@@ -12,6 +12,19 @@ import (
 
 // Add submits a new job to the queue
 func (q *Queue) Add(ctx context.Context, name string, data map[string]interface{}, opts JobOptions) (*Job, error) {
+	// Apply defaults for missing fields
+	if opts.Attempts == 0 {
+		opts.Attempts = 1 // BullMQ default
+	}
+
+	// Apply default backoff only if attempts > 1 and no backoff specified
+	if opts.Attempts > 1 && opts.Backoff.Type == "" {
+		opts.Backoff = BackoffConfig{
+			Type:  "exponential",
+			Delay: 1000, // 1 second in milliseconds
+		}
+	}
+
 	// Validate job options
 	if err := ValidateJobOptions(opts); err != nil {
 		return nil, err

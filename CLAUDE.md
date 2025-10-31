@@ -96,6 +96,134 @@ kubectl port-forward pod/redis 6379:6379
 nerdctl run -d -p 6379:6379 redis:7-alpine
 ```
 
+### Redis Cluster Setup
+
+**Redis Cluster** is a distributed implementation of Redis that automatically shards data across multiple nodes, providing high availability and horizontal scalability. For production deployments handling high throughput, Redis Cluster is recommended.
+
+#### Why Redis Cluster?
+
+- **Horizontal Scaling**: Distribute data across multiple nodes (up to 1000 nodes)
+- **High Availability**: Automatic failover with replica promotion
+- **Data Sharding**: Automatic partitioning using hash slots (16384 slots)
+
+#### Requirements
+
+- **Minimum 3 master nodes** (Redis Cluster requirement)
+- **Hash tags** on all keys for multi-key operations (automatically validated by this library)
+
+#### Local Cluster Setup (Docker Compose)
+
+Create a `docker-compose.cluster.yml` file:
+
+```yaml
+version: '3.8'
+
+services:
+  redis-cluster:
+    image: redis:7-alpine
+    command: redis-cli --cluster create
+      redis-node-1:6379 redis-node-2:6379 redis-node-3:6379
+      --cluster-replicas 0 --cluster-yes
+    depends_on:
+      - redis-node-1
+      - redis-node-2
+      - redis-node-3
+
+  redis-node-1:
+    image: redis:7-alpine
+    command: redis-server --port 6379 --cluster-enabled yes --cluster-config-file nodes.conf --cluster-node-timeout 5000
+    ports:
+      - "6379:6379"
+
+  redis-node-2:
+    image: redis:7-alpine
+    command: redis-server --port 6379 --cluster-enabled yes --cluster-config-file nodes.conf --cluster-node-timeout 5000
+    ports:
+      - "6380:6379"
+
+  redis-node-3:
+    image: redis:7-alpine
+    command: redis-server --port 6379 --cluster-enabled yes --cluster-config-file nodes.conf --cluster-node-timeout 5000
+    ports:
+      - "6381:6379"
+```
+
+Start the cluster:
+
+```bash
+docker-compose -f docker-compose.cluster.yml up -d
+```
+
+#### Connecting to Redis Cluster
+
+```go
+import "github.com/redis/go-redis/v9"
+
+// Single-instance Redis (development)
+client := redis.NewClient(&redis.Options{
+    Addr: "localhost:6379",
+})
+
+// Redis Cluster (production)
+client := redis.NewClusterClient(&redis.ClusterOptions{
+    Addrs: []string{
+        "localhost:6379",
+        "localhost:6380",
+        "localhost:6381",
+    },
+})
+
+// Use with BullMQ (works with both single-instance and cluster)
+worker := bullmq.NewWorker("myqueue", client, bullmq.WorkerOptions{...})
+```
+
+#### Hash Tag Validation
+
+This library **automatically validates** that all queue keys use proper hash tags on Worker startup:
+
+```go
+worker.Start(ctx)
+// Output if using Redis Cluster:
+// ✅ Redis Cluster detected: Queue 'myqueue' keys validated (slot 2331)
+```
+
+**How it works**:
+- All queue keys use the format `bull:{queue-name}:...`
+- The `{queue-name}` syntax is a Redis Cluster **hash tag**
+- Redis only hashes the content between `{}` when calculating slots
+- This ensures all keys for a queue hash to the **same slot**
+- Multi-key Lua scripts require all keys to be in the same slot
+
+**Example**:
+```go
+// All these keys hash to the same slot:
+bull:{myqueue}:wait        → slot 2331
+bull:{myqueue}:active      → slot 2331
+bull:{myqueue}:prioritized → slot 2331
+bull:{myqueue}:1           → slot 2331 (job hash)
+bull:{myqueue}:1:lock      → slot 2331 (lock key)
+```
+
+Without hash tags, multi-key operations would fail with `CROSSSLOT` errors in cluster mode.
+
+#### Verifying Cluster Health
+
+```bash
+# Connect to any cluster node
+redis-cli -c -p 6379
+
+# Check cluster status
+CLUSTER INFO
+
+# List cluster nodes
+CLUSTER NODES
+
+# Check key slot assignment
+CLUSTER KEYSLOT "bull:{myqueue}:wait"
+```
+
+For more details on hash tag implementation, see the "Redis Keys" section below.
+
 ### Testing
 
 ```bash

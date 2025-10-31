@@ -15,6 +15,9 @@ func (w *Worker) Start(ctx context.Context) error {
 		return fmt.Errorf("job processor not registered, call Process() first")
 	}
 
+	// Validate Redis Cluster compatibility (optional warning)
+	w.validateClusterCompatibility()
+
 	// Start background services
 	w.startHeartbeatManager(ctx)
 	w.startStalledChecker(ctx)
@@ -76,10 +79,12 @@ func (w *Worker) pickupJob(ctx context.Context) error {
 
 	// Check prioritized queue (ZSET with scores)
 	results, err := w.redisClient.ZPopMin(ctx, kb.Prioritized(), 1).Result()
-	if err == nil && len(results) > 0 {
-		jobID = results[0].Member.(string)
-	} else if err != redis.Nil {
+	if err != nil && err != redis.Nil {
+		// Actual error (not just empty queue)
 		return err
+	}
+	if len(results) > 0 {
+		jobID = results[0].Member.(string)
 	}
 
 	// If no priority jobs, check wait queue (LIST)
@@ -374,6 +379,37 @@ func (w *Worker) gracefulShutdown() error {
 	case <-time.After(w.opts.ShutdownTimeout):
 		return fmt.Errorf("shutdown timeout exceeded")
 	}
+}
+
+// validateClusterCompatibility validates that all keys use proper hash tags for Redis Cluster
+// This is an optional warning - the worker will function in both single-instance and cluster modes
+func (w *Worker) validateClusterCompatibility() {
+	// Generate sample keys for validation
+	kb := NewKeyBuilder(w.queueName)
+	keys := []string{
+		kb.Wait(),
+		kb.Active(),
+		kb.Prioritized(),
+		kb.Meta(),
+		kb.Job("sample-id"),
+		kb.Lock("sample-id"),
+	}
+
+	// Validate all keys hash to same slot
+	allSame, slot, _ := ValidateHashTags(keys)
+	if !allSame {
+		// This should never happen if KeyBuilder is implemented correctly
+		fmt.Printf("⚠️  WARNING: Queue '%s' keys do NOT all hash to the same Redis Cluster slot. "+
+			"Multi-key Lua scripts may fail with CROSSSLOT errors in cluster mode.\n", w.queueName)
+		return
+	}
+
+	// Check if we're connected to a cluster
+	isCluster := IsRedisCluster(w.redisClient)
+	if isCluster {
+		fmt.Printf("✅ Redis Cluster detected: Queue '%s' keys validated (slot %d)\n", w.queueName, slot)
+	}
+	// If not cluster, no need to log anything (most common case)
 }
 
 // Helper to convert WorkerOptions to JobOptions
