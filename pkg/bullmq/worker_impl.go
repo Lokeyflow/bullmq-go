@@ -2,6 +2,7 @@ package bullmq
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -170,21 +171,62 @@ func (w *Worker) getJobData(ctx context.Context, jobID string) (*Job, error) {
 		return nil, err
 	}
 
-	// Parse job data (simplified - full implementation needed)
+	if len(data) == 0 {
+		return nil, fmt.Errorf("job not found: %s", jobID)
+	}
+
+	// Parse job data
 	job := &Job{
 		ID:          jobID,
 		Data:        make(map[string]interface{}),
-		Opts:        w.opts.toJobOptions(),
 		queueName:   w.queueName,
 		redisClient: w.redisClient,
 		emitter:     w.eventEmitter,
 	}
 
+	// Parse string fields
 	if name, ok := data["name"]; ok {
 		job.Name = name
 	}
 
-	// More field parsing needed...
+	// Parse JSON data field
+	if dataJSON, ok := data["data"]; ok && dataJSON != "" {
+		if err := json.Unmarshal([]byte(dataJSON), &job.Data); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal job data: %w", err)
+		}
+	}
+
+	// Parse JSON opts field
+	if optsJSON, ok := data["opts"]; ok && optsJSON != "" {
+		if err := json.Unmarshal([]byte(optsJSON), &job.Opts); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal job opts: %w", err)
+		}
+	}
+
+	// Parse numeric fields
+	if progress, ok := data["progress"]; ok {
+		fmt.Sscanf(progress, "%d", &job.Progress)
+	}
+	if timestamp, ok := data["timestamp"]; ok {
+		fmt.Sscanf(timestamp, "%d", &job.Timestamp)
+	}
+	if attemptsMade, ok := data["attemptsMade"]; ok {
+		fmt.Sscanf(attemptsMade, "%d", &job.AttemptsMade)
+	}
+	if delay, ok := data["delay"]; ok {
+		fmt.Sscanf(delay, "%d", &job.Delay)
+	}
+
+	// Parse optional fields
+	if failedReason, ok := data["failedReason"]; ok {
+		job.FailedReason = failedReason
+	}
+	if processedOn, ok := data["processedOn"]; ok {
+		fmt.Sscanf(processedOn, "%d", &job.ProcessedOn)
+	}
+	if finishedOn, ok := data["finishedOn"]; ok {
+		fmt.Sscanf(finishedOn, "%d", &job.FinishedOn)
+	}
 
 	return job, nil
 }
