@@ -1,0 +1,318 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/taskforcesh/bullmq/blob/master/job-schema.json",
+  "title": "BullMQ Job Schema",
+  "description": "JSON Schema for BullMQ Job data structure stored in Redis hash (bull:{queue}:{jobId}). Based on BullMQ v5.62.0 (commit 6a31e0aeab1311d7d089811ede7e11a98b6dd408).",
+  "type": "object",
+  "required": [
+    "id",
+    "name",
+    "data",
+    "opts",
+    "timestamp",
+    "attemptsMade"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique job identifier. Auto-generated via INCR bull:{queue}:id or user-provided.",
+      "examples": ["1", "42", "user-123-task-456"]
+    },
+    "name": {
+      "type": "string",
+      "description": "Job name/type identifier. Used by workers to route jobs to appropriate handlers.",
+      "examples": ["send-email", "process-image", "generate-report"],
+      "minLength": 1
+    },
+    "data": {
+      "type": "string",
+      "description": "Job payload as JSON string. Contains user-defined data for job processing.",
+      "contentMediaType": "application/json",
+      "examples": [
+        "{\"userId\":\"123\",\"action\":\"send-email\"}",
+        "{\"imageUrl\":\"https://example.com/image.jpg\",\"filters\":[\"resize\",\"blur\"]}"
+      ]
+    },
+    "opts": {
+      "type": "string",
+      "description": "Job options as JSON string. Includes retry, backoff, and retention settings.",
+      "contentMediaType": "application/json",
+      "examples": [
+        "{\"attempts\":3,\"backoff\":{\"type\":\"exponential\",\"delay\":1000}}",
+        "{\"priority\":10,\"delay\":5000,\"removeOnComplete\":true}"
+      ]
+    },
+    "timestamp": {
+      "type": "string",
+      "description": "Job creation timestamp in Unix milliseconds (stringified).",
+      "pattern": "^[0-9]+$",
+      "examples": ["1698765000000", "1730289600000"]
+    },
+    "attemptsMade": {
+      "type": "string",
+      "description": "Number of processing attempts (stringified integer). Incremented on each retry.",
+      "pattern": "^[0-9]+$",
+      "default": "0",
+      "examples": ["0", "1", "2", "3"]
+    },
+    "processedOn": {
+      "type": "string",
+      "description": "Timestamp when job processing started (Unix milliseconds, stringified). Set when job moves to active state.",
+      "pattern": "^[0-9]+$",
+      "examples": ["1698765001000"]
+    },
+    "finishedOn": {
+      "type": "string",
+      "description": "Timestamp when job finished (Unix milliseconds, stringified). Set on completion or failure.",
+      "pattern": "^[0-9]+$",
+      "examples": ["1698765005000"]
+    },
+    "returnvalue": {
+      "type": "string",
+      "description": "Job result as JSON string. Set when job completes successfully.",
+      "contentMediaType": "application/json",
+      "examples": [
+        "{\"sent\":true,\"messageId\":\"abc123\"}",
+        "{\"processedCount\":42,\"duration\":1234}"
+      ]
+    },
+    "failedReason": {
+      "type": "string",
+      "description": "Error message string. Set when job fails. Contains error.message from caught exception.",
+      "examples": [
+        "Connection timeout after 30s",
+        "Invalid email address: not-an-email",
+        "Database connection lost"
+      ]
+    },
+    "stacktrace": {
+      "type": "string",
+      "description": "JSON array of stack traces from all failed attempts. Each attempt appends its stack trace.",
+      "contentMediaType": "application/json",
+      "examples": [
+        "[\"Error: Connection timeout\\n    at processJob (worker.js:42)\\n    at Worker.run (worker.js:15)\"]",
+        "[\"Error: First attempt\\n    at ...\", \"Error: Second attempt\\n    at ...\"]"
+      ]
+    },
+    "progress": {
+      "type": "string",
+      "description": "Job progress percentage as stringified number (0-100). Updated via job.updateProgress().",
+      "pattern": "^[0-9]+(\\.[0-9]+)?$",
+      "minimum": 0,
+      "maximum": 100,
+      "examples": ["0", "25", "50.5", "100"]
+    },
+    "logs": {
+      "type": "string",
+      "description": "DEPRECATED: Log entries moved to separate key bull:{queue}:{id}:logs. Field kept for backward compatibility.",
+      "deprecated": true
+    },
+    "delay": {
+      "type": "string",
+      "description": "Original delay value in milliseconds (stringified). Preserved for job history.",
+      "pattern": "^[0-9]+$",
+      "examples": ["0", "5000", "60000"]
+    },
+    "priority": {
+      "type": "string",
+      "description": "Job priority (stringified integer). Higher values processed first. Preserved for job history.",
+      "pattern": "^[0-9]+$",
+      "examples": ["0", "10", "100"]
+    },
+    "parentKey": {
+      "type": "string",
+      "description": "Parent job key for job flows (bull:{parentQueue}:{parentId}). Used in parent-child job dependencies.",
+      "pattern": "^bull:\\{[^}]+\\}:[^:]+$",
+      "examples": ["bull:{workflows}:42"]
+    },
+    "parent": {
+      "type": "string",
+      "description": "JSON string containing parent job metadata: {id, queue}. Used in job flows.",
+      "contentMediaType": "application/json",
+      "examples": [
+        "{\"id\":\"42\",\"queue\":\"workflows\"}"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "examples": [
+    {
+      "id": "1",
+      "name": "send-email",
+      "data": "{\"to\":\"user@example.com\",\"subject\":\"Hello\",\"body\":\"Welcome!\"}",
+      "opts": "{\"attempts\":3,\"backoff\":{\"type\":\"exponential\",\"delay\":1000},\"removeOnComplete\":true}",
+      "timestamp": "1698765000000",
+      "attemptsMade": "0"
+    },
+    {
+      "id": "2",
+      "name": "process-image",
+      "data": "{\"imageUrl\":\"https://example.com/photo.jpg\",\"operations\":[\"resize\",\"crop\"]}",
+      "opts": "{\"attempts\":5,\"backoff\":{\"type\":\"fixed\",\"delay\":2000},\"priority\":10}",
+      "timestamp": "1698765001000",
+      "attemptsMade": "1",
+      "processedOn": "1698765002000",
+      "progress": "50",
+      "failedReason": "Network timeout",
+      "stacktrace": "[\"Error: Network timeout\\n    at fetch (http.js:123)\\n    at processImage (worker.js:45)\"]"
+    },
+    {
+      "id": "3",
+      "name": "generate-report",
+      "data": "{\"userId\":\"123\",\"reportType\":\"monthly\",\"month\":\"2024-10\"}",
+      "opts": "{\"attempts\":3,\"backoff\":{\"type\":\"exponential\",\"delay\":1000}}",
+      "timestamp": "1698765003000",
+      "attemptsMade": "3",
+      "processedOn": "1698765004000",
+      "finishedOn": "1698765010000",
+      "returnvalue": "{\"reportId\":\"report-456\",\"pages\":12,\"generatedAt\":\"2024-10-30T12:00:00Z\"}"
+    }
+  ],
+  "definitions": {
+    "JobOptions": {
+      "type": "object",
+      "description": "Job options structure (stored as JSON string in opts field).",
+      "properties": {
+        "attempts": {
+          "type": "integer",
+          "description": "Maximum number of retry attempts before job moves to failed state.",
+          "minimum": 1,
+          "default": 3,
+          "examples": [1, 3, 5, 10]
+        },
+        "backoff": {
+          "type": "object",
+          "description": "Retry backoff configuration.",
+          "required": ["type"],
+          "properties": {
+            "type": {
+              "type": "string",
+              "description": "Backoff strategy type.",
+              "enum": ["fixed", "exponential"],
+              "examples": ["fixed", "exponential"]
+            },
+            "delay": {
+              "type": "integer",
+              "description": "Base delay in milliseconds. For exponential: delay * 2^(attemptsMade-1). Max capped at 3600000ms (1 hour).",
+              "minimum": 0,
+              "default": 1000,
+              "examples": [1000, 5000, 10000]
+            }
+          }
+        },
+        "delay": {
+          "type": "integer",
+          "description": "Initial delay in milliseconds before job becomes available for processing. Job added to delayed queue.",
+          "minimum": 0,
+          "default": 0,
+          "examples": [0, 5000, 60000]
+        },
+        "priority": {
+          "type": "integer",
+          "description": "Job priority (higher = processed first). Jobs with priority > 0 added to prioritized queue (ZSET).",
+          "minimum": 0,
+          "default": 0,
+          "examples": [0, 10, 50, 100]
+        },
+        "removeOnComplete": {
+          "oneOf": [
+            {
+              "type": "boolean",
+              "description": "True = remove job immediately after completion. False = keep indefinitely."
+            },
+            {
+              "type": "integer",
+              "description": "Keep last N completed jobs (FIFO). Older jobs removed automatically.",
+              "minimum": 0
+            }
+          ],
+          "default": false,
+          "examples": [true, false, 1000, 10000]
+        },
+        "removeOnFail": {
+          "oneOf": [
+            {
+              "type": "boolean",
+              "description": "True = remove job immediately after failure. False = keep indefinitely."
+            },
+            {
+              "type": "integer",
+              "description": "Keep last N failed jobs (FIFO). Older jobs removed automatically.",
+              "minimum": 0
+            }
+          ],
+          "default": false,
+          "examples": [true, false, 1000, 10000]
+        },
+        "jobId": {
+          "type": "string",
+          "description": "Custom job ID (instead of auto-generated). Useful for idempotency (reject duplicate IDs).",
+          "examples": ["user-123-order-456", "unique-operation-789"]
+        },
+        "lifo": {
+          "type": "boolean",
+          "description": "True = LIFO (stack), False = FIFO (queue). Applies to wait queue only.",
+          "default": false
+        },
+        "timeout": {
+          "type": "integer",
+          "description": "Job timeout in milliseconds. Job fails if processing exceeds this duration.",
+          "minimum": 0,
+          "examples": [30000, 60000, 300000]
+        },
+        "stackTraceLimit": {
+          "type": "integer",
+          "description": "Maximum stack trace entries to store. Prevents unbounded growth on repeated failures.",
+          "minimum": 0,
+          "default": 10,
+          "examples": [5, 10, 20]
+        }
+      }
+    },
+    "JobData": {
+      "type": "object",
+      "description": "User-defined job payload (stored as JSON string in data field). Can be any valid JSON object.",
+      "additionalProperties": true,
+      "examples": [
+        {
+          "userId": "123",
+          "action": "send-email",
+          "to": "user@example.com"
+        },
+        {
+          "imageUrl": "https://example.com/image.jpg",
+          "operations": ["resize", "crop", "compress"]
+        }
+      ]
+    },
+    "JobReturnValue": {
+      "type": "object",
+      "description": "Job result payload (stored as JSON string in returnvalue field). Can be any valid JSON object.",
+      "additionalProperties": true,
+      "examples": [
+        {
+          "sent": true,
+          "messageId": "abc123"
+        },
+        {
+          "processedCount": 42,
+          "duration": 1234,
+          "errors": []
+        }
+      ]
+    }
+  },
+  "notes": [
+    "All numeric fields are stored as STRINGS in Redis hash (not native numbers).",
+    "JSON fields (data, opts, returnvalue, stacktrace) are stored as escaped JSON strings.",
+    "Job hash is created with HSET bull:{queue}:{id} field1 value1 field2 value2 ...",
+    "Job hash is retrieved with HGETALL bull:{queue}:{id}.",
+    "Job hash is deleted with DEL bull:{queue}:{id} when removeOnComplete/Fail is true.",
+    "Maximum job payload size (data + opts combined) is 10MB after JSON serialization.",
+    "Job ID can be auto-generated (INCR) or user-provided (for idempotency).",
+    "attemptsMade starts at 0 and increments on each retry (max = opts.attempts).",
+    "progress field is optional and updated via job.updateProgress() API.",
+    "stacktrace field accumulates error traces from all attempts (array of strings).",
+    "parent/parentKey fields are only present for child jobs in job flows (out of scope for MVP)."
+  ]
+}

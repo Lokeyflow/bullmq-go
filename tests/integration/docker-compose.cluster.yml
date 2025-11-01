@@ -1,0 +1,115 @@
+version: '3.8'
+
+# Redis Cluster for Integration Testing
+# Starts a 3-node Redis Cluster (3 masters, no replicas)
+#
+# Usage:
+#   docker-compose -f tests/integration/docker-compose.cluster.yml up -d
+#   docker-compose -f tests/integration/docker-compose.cluster.yml down
+
+services:
+  redis-node-1:
+    image: redis:7-alpine
+    container_name: bullmq-test-redis-1
+    command: >
+      redis-server
+      --port 6379
+      --cluster-enabled yes
+      --cluster-config-file nodes.conf
+      --cluster-node-timeout 5000
+      --appendonly no
+      --save ""
+      --loglevel warning
+    ports:
+      - "7001:6379"
+      - "17001:16379"  # Cluster bus port
+    networks:
+      redis-cluster:
+        ipv4_address: 172.30.0.11
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 10
+
+  redis-node-2:
+    image: redis:7-alpine
+    container_name: bullmq-test-redis-2
+    command: >
+      redis-server
+      --port 6379
+      --cluster-enabled yes
+      --cluster-config-file nodes.conf
+      --cluster-node-timeout 5000
+      --appendonly no
+      --save ""
+      --loglevel warning
+    ports:
+      - "7002:6379"
+      - "17002:16379"
+    networks:
+      redis-cluster:
+        ipv4_address: 172.30.0.12
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 10
+
+  redis-node-3:
+    image: redis:7-alpine
+    container_name: bullmq-test-redis-3
+    command: >
+      redis-server
+      --port 6379
+      --cluster-enabled yes
+      --cluster-config-file nodes.conf
+      --cluster-node-timeout 5000
+      --appendonly no
+      --save ""
+      --loglevel warning
+    ports:
+      - "7003:6379"
+      - "17003:16379"
+    networks:
+      redis-cluster:
+        ipv4_address: 172.30.0.13
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 10
+
+  cluster-init:
+    image: redis:7-alpine
+    container_name: bullmq-cluster-init
+    depends_on:
+      redis-node-1:
+        condition: service_healthy
+      redis-node-2:
+        condition: service_healthy
+      redis-node-3:
+        condition: service_healthy
+    command: >
+      sh -c "
+        echo 'Waiting for Redis nodes to be ready...' &&
+        sleep 2 &&
+        echo 'Creating Redis Cluster...' &&
+        redis-cli --cluster create
+        172.30.0.11:6379
+        172.30.0.12:6379
+        172.30.0.13:6379
+        --cluster-replicas 0
+        --cluster-yes &&
+        echo 'Redis Cluster created successfully!' &&
+        redis-cli -c -h 172.30.0.11 cluster info
+      "
+    networks:
+      - redis-cluster
+
+networks:
+  redis-cluster:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/16

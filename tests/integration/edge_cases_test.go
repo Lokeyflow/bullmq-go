@@ -14,7 +14,7 @@ import (
 //
 // This test addresses P1 requirement: Add edge case tests for Unicode/emoji/null bytes
 func TestJobDataUnicodeHandling(t *testing.T) {
-	ctx := context.Background()
+	_ = context.Background()
 
 	testCases := []struct {
 		name        string
