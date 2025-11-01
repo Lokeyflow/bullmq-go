@@ -21,7 +21,7 @@ This guide helps you integrate BullMQ-Go into your existing Go projects and depl
 ### Step 1: Add Dependency
 
 ```bash
-go get github.com/Lokeyflow/bullmq-go/pkg/bullmq
+go get github.com/lokeyflow/bullmq-go/pkg/bullmq
 ```
 
 ### Step 2: Verify Redis Connection
@@ -86,7 +86,7 @@ import (
     "os/signal"
     "syscall"
 
-    "github.com/Lokeyflow/bullmq-go/pkg/bullmq"
+    "github.com/lokeyflow/bullmq-go/pkg/bullmq"
     "github.com/redis/go-redis/v9"
 )
 
@@ -170,7 +170,7 @@ func processJob(job *bullmq.Job) error {
 package main
 
 import (
-    "github.com/Lokeyflow/bullmq-go/pkg/bullmq"
+    "github.com/lokeyflow/bullmq-go/pkg/bullmq"
     "github.com/redis/go-redis/v9"
 )
 
@@ -200,7 +200,7 @@ package main
 import (
     "context"
     "log"
-    "github.com/Lokeyflow/bullmq-go/pkg/bullmq"
+    "github.com/lokeyflow/bullmq-go/pkg/bullmq"
     "github.com/redis/go-redis/v9"
 )
 
@@ -371,6 +371,7 @@ func LoadConfig() (*Config, error) {
 ### Idempotent Job Handlers (CRITICAL)
 
 **Job handlers MUST be idempotent** - they may execute multiple times for the same job due to:
+
 - Worker crashes
 - Lock expiration
 - Network partitions
@@ -425,7 +426,7 @@ worker.Process(func(job *bullmq.Job) error {
 ### Error Classification
 
 ```go
-import "github.com/Lokeyflow/bullmq-go/pkg/bullmq"
+import "github.com/lokeyflow/bullmq-go/pkg/bullmq"
 
 worker.Process(func(job *bullmq.Job) error {
     result, err := callExternalAPI(job.Data)
@@ -951,11 +952,13 @@ const worker = new Worker('tasks', async (job) => {
 ### Data Compatibility
 
 ✅ **Compatible Data Types**:
+
 - Strings, numbers, booleans
 - Objects/maps
 - Arrays/slices
 
 ❌ **Avoid**:
+
 - Go-specific types (channels, functions)
 - Binary data without Base64 encoding
 - Large nested structures (use references instead)
@@ -966,8 +969,8 @@ const worker = new Worker('tasks', async (job) => {
 
 - **Documentation**: [README.md](README.md)
 - **Quick Start**: [QUICKSTART.md](QUICKSTART.md)
-- **Issues**: [GitHub Issues](https://github.com/Lokeyflow/bullmq-go/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/Lokeyflow/bullmq-go/discussions)
+- **Issues**: [GitHub Issues](https://github.com/lokeyflow/bullmq-go/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/lokeyflow/bullmq-go/discussions)
 
 ---
 

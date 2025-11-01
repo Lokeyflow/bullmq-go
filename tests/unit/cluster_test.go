@@ -3,7 +3,7 @@ package unit
 import (
 	"testing"
 
-	"github.com/Lokeyflow/bullmq-go/pkg/bullmq"
+	"github.com/lokeyflow/bullmq-go/pkg/bullmq"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -148,7 +148,8 @@ func TestValidateHashTags_KeysWithoutHashTags(t *testing.T) {
 // TestKeyBuilder_HashTagValidation validates T113: All KeyBuilder methods use hash tags
 func TestKeyBuilder_HashTagValidation(t *testing.T) {
 	queueName := "validation-queue"
-	kb := bullmq.NewKeyBuilder(queueName)
+	// Test cluster mode (hash tags enabled)
+	kb := bullmq.NewKeyBuilderWithHashTags(queueName, true)
 
 	// Test all KeyBuilder methods
 	keys := map[string]string{
@@ -195,7 +196,8 @@ func TestKeyBuilder_HashTagValidation(t *testing.T) {
 // TestAnalyzeClusterKeys provides diagnostic information
 func TestAnalyzeClusterKeys(t *testing.T) {
 	queueName := "analysis-queue"
-	kb := bullmq.NewKeyBuilder(queueName)
+	// Test cluster mode (hash tags enabled)
+	kb := bullmq.NewKeyBuilderWithHashTags(queueName, true)
 
 	keys := []string{
 		kb.Wait(),

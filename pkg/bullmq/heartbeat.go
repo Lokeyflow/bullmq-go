@@ -59,7 +59,7 @@ func (hm *HeartbeatManager) heartbeatLoop(ctx context.Context, jobID string, loc
 	defer ticker.Stop()
 	defer hm.StopHeartbeat(jobID)
 
-	kb := NewKeyBuilder(hm.worker.queueName)
+	kb := NewKeyBuilder(hm.worker.queueName, hm.worker.redisClient)
 	lockKey := kb.Lock(jobID)
 
 	for {

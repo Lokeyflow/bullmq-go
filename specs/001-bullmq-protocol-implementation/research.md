@@ -1028,8 +1028,8 @@ jobs:
 **Optional Import (No Forced Dependency)**:
 ```go
 import (
-    "github.com/Lokeyflow/bullmq-go/pkg/bullmq"
-    "github.com/Lokeyflow/bullmq-go/pkg/bullmq/metrics" // Optional
+    "github.com/lokeyflow/bullmq-go/pkg/bullmq"
+    "github.com/lokeyflow/bullmq-go/pkg/bullmq/metrics" // Optional
     "github.com/prometheus/client_golang/prometheus/promhttp"
 )
 

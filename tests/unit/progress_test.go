@@ -3,7 +3,7 @@ package unit
 import (
 	"testing"
 
-	"github.com/Lokeyflow/bullmq-go/pkg/bullmq"
+	"github.com/lokeyflow/bullmq-go/pkg/bullmq"
 	"github.com/stretchr/testify/assert"
 )
 

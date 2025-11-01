@@ -4,19 +4,19 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/Lokeyflow/bullmq-go/pkg/bullmq/scripts"
+	"github.com/lokeyflow/bullmq-go/pkg/bullmq/scripts"
 	"github.com/redis/go-redis/v9"
 )
 
 // ProgressUpdater handles atomic progress updates using Lua scripts
 type ProgressUpdater struct {
 	queueName   string
-	redisClient *redis.Client
+	redisClient redis.Cmdable
 	scriptLoader *scripts.ScriptLoader
 }
 
 // NewProgressUpdater creates a new progress updater
-func NewProgressUpdater(queueName string, redisClient *redis.Client) *ProgressUpdater {
+func NewProgressUpdater(queueName string, redisClient redis.Cmdable) *ProgressUpdater {
 	scriptLoader := scripts.NewScriptLoader(redisClient)
 	scriptLoader.LoadAll()
 
@@ -41,7 +41,7 @@ func (p *ProgressUpdater) UpdateProgress(ctx context.Context, jobID string, prog
 		}
 	}
 
-	kb := NewKeyBuilder(p.queueName)
+	kb := NewKeyBuilder(p.queueName, p.redisClient)
 
 	// KEYS
 	keys := []string{

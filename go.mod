@@ -1,6 +1,6 @@
-module github.com/Lokeyflow/bullmq-go
+module github.com/lokeyflow/bullmq-go
 
-go 1.25.3
+go 1.24
 
 require (
 	github.com/google/uuid v1.6.0

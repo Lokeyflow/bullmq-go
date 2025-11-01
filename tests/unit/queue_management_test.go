@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Lokeyflow/bullmq-go/pkg/bullmq"
+	"github.com/lokeyflow/bullmq-go/pkg/bullmq"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -47,7 +47,7 @@ func TestQueue_Clean_Completed(t *testing.T) {
 
 	ctx := context.Background()
 	queueName := "test-clean-completed"
-	kb := bullmq.NewKeyBuilder(queueName)
+	kb := bullmq.NewKeyBuilder(queueName, client)
 
 	// Clean up
 	client.Del(ctx, kb.Completed())
@@ -94,7 +94,7 @@ func TestQueue_RetryJob(t *testing.T) {
 
 	ctx := context.Background()
 	queueName := "test-retry"
-	kb := bullmq.NewKeyBuilder(queueName)
+	kb := bullmq.NewKeyBuilder(queueName, client)
 
 	// Clean up
 	client.Del(ctx, kb.Failed(), kb.Wait())
@@ -172,7 +172,7 @@ func TestQueue_GetJobsByState(t *testing.T) {
 
 	ctx := context.Background()
 	queueName := "test-get-by-state"
-	kb := bullmq.NewKeyBuilder(queueName)
+	kb := bullmq.NewKeyBuilder(queueName, client)
 
 	// Clean up
 	client.Del(ctx, kb.Wait(), kb.Completed())

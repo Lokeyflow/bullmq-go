@@ -14,7 +14,7 @@
 ```bash
 $ go test -v ./tests/integration -run TestWorker
 PASS
-ok      github.com/Lokeyflow/bullmq-go/tests/integration    6.017s
+ok      github.com/lokeyflow/bullmq-go/tests/integration    6.017s
 ```
 
 **10/10 tests passing:**

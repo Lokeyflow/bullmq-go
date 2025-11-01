@@ -4,12 +4,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Lokeyflow/bullmq-go/pkg/bullmq"
+	"github.com/lokeyflow/bullmq-go/pkg/bullmq"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestKeyBuilder_HashTags(t *testing.T) {
-	kb := bullmq.NewKeyBuilder("myqueue")
+	// Test with hash tags enabled (cluster mode)
+	kb := bullmq.NewKeyBuilderWithHashTags("myqueue", true)
 
 	tests := []struct {
 		name     string
@@ -39,7 +40,8 @@ func TestKeyBuilder_HashTags(t *testing.T) {
 }
 
 func TestKeyBuilder_JobKeys(t *testing.T) {
-	kb := bullmq.NewKeyBuilder("testqueue")
+	// Test with hash tags enabled (cluster mode)
+	kb := bullmq.NewKeyBuilderWithHashTags("testqueue", true)
 
 	t.Run("Job", func(t *testing.T) {
 		key := kb.Job("job-123")
@@ -61,7 +63,8 @@ func TestKeyBuilder_JobKeys(t *testing.T) {
 }
 
 func TestKeyBuilder_AllKeysUseHashTags(t *testing.T) {
-	kb := bullmq.NewKeyBuilder("production-queue")
+	// Test with hash tags enabled (cluster mode)
+	kb := bullmq.NewKeyBuilderWithHashTags("production-queue", true)
 
 	// Get all keys
 	keys := []string{

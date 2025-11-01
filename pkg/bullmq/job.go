@@ -25,9 +25,9 @@ type Job struct {
 	Delay         int64                  `json:"delay"`
 
 	// Internal fields for operations (not serialized)
-	queueName   string        `json:"-"`
-	redisClient *redis.Client `json:"-"`
-	emitter     *EventEmitter `json:"-"`
+	queueName   string         `json:"-"`
+	redisClient redis.Cmdable  `json:"-"`
+	emitter     *EventEmitter  `json:"-"`
 }
 
 // JobOptions configures job behavior
