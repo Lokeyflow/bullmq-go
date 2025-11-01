@@ -20,7 +20,7 @@ func NewCompleter(worker *Worker) *Completer {
 
 // Complete marks a job as completed
 func (c *Completer) Complete(ctx context.Context, job *Job, returnValue interface{}) error {
-	kb := NewKeyBuilder(c.worker.queueName)
+	kb := NewKeyBuilder(c.worker.queueName, c.worker.redisClient)
 
 	// Remove from active
 	if err := c.worker.redisClient.LRem(ctx, kb.Active(), 1, job.ID).Err(); err != nil {
@@ -65,7 +65,7 @@ func (c *Completer) Complete(ctx context.Context, job *Job, returnValue interfac
 
 // Fail marks a job as failed
 func (c *Completer) Fail(ctx context.Context, job *Job, err error) error {
-	kb := NewKeyBuilder(c.worker.queueName)
+	kb := NewKeyBuilder(c.worker.queueName, c.worker.redisClient)
 
 	// Remove from active
 	c.worker.redisClient.LRem(ctx, kb.Active(), 1, job.ID)
@@ -106,7 +106,7 @@ func (c *Completer) Fail(ctx context.Context, job *Job, err error) error {
 
 // emitCompletedEvent emits a completed event
 func (c *Completer) emitCompletedEvent(ctx context.Context, job *Job) {
-	kb := NewKeyBuilder(c.worker.queueName)
+	kb := NewKeyBuilder(c.worker.queueName, c.worker.redisClient)
 
 	event := map[string]interface{}{
 		"event":        EventCompleted,
@@ -126,7 +126,7 @@ func (c *Completer) emitCompletedEvent(ctx context.Context, job *Job) {
 
 // emitFailedEvent emits a failed event
 func (c *Completer) emitFailedEvent(ctx context.Context, job *Job) {
-	kb := NewKeyBuilder(c.worker.queueName)
+	kb := NewKeyBuilder(c.worker.queueName, c.worker.redisClient)
 
 	event := map[string]interface{}{
 		"event":        EventFailed,

@@ -65,7 +65,7 @@ func (w *Worker) pickupJob(ctx context.Context) error {
 	w.mu.RUnlock()
 
 	// Check if queue is paused
-	kb := NewKeyBuilder(w.queueName)
+	kb := NewKeyBuilder(w.queueName, w.redisClient)
 	isPaused, err := w.redisClient.HGet(ctx, kb.Meta(), "paused").Result()
 	if err != nil && err != redis.Nil {
 		return err
@@ -110,7 +110,7 @@ func (w *Worker) pickupJob(ctx context.Context) error {
 
 // acquireLockAndActivate acquires a lock and moves job to active
 func (w *Worker) acquireLockAndActivate(ctx context.Context, jobID string) (LockToken, error) {
-	kb := NewKeyBuilder(w.queueName)
+	kb := NewKeyBuilder(w.queueName, w.redisClient)
 	lockToken := NewLockToken()
 
 	// Set lock with TTL
@@ -167,7 +167,7 @@ func (w *Worker) processJob(ctx context.Context, jobID string, lockToken LockTok
 
 // getJobData retrieves job data from Redis
 func (w *Worker) getJobData(ctx context.Context, jobID string) (*Job, error) {
-	kb := NewKeyBuilder(w.queueName)
+	kb := NewKeyBuilder(w.queueName, w.redisClient)
 	jobKey := kb.Job(jobID)
 
 	// Get job hash from Redis
@@ -238,7 +238,7 @@ func (w *Worker) getJobData(ctx context.Context, jobID string) (*Job, error) {
 
 // handleJobSuccess handles successful job completion
 func (w *Worker) handleJobSuccess(ctx context.Context, job *Job) {
-	kb := NewKeyBuilder(w.queueName)
+	kb := NewKeyBuilder(w.queueName, w.redisClient)
 
 	// Remove from active
 	w.redisClient.LRem(ctx, kb.Active(), 1, job.ID)
@@ -279,7 +279,7 @@ func (w *Worker) handleJobFailure(ctx context.Context, job *Job, err error) {
 
 // moveToFailed moves job to failed queue
 func (w *Worker) moveToFailed(ctx context.Context, job *Job, err error) {
-	kb := NewKeyBuilder(w.queueName)
+	kb := NewKeyBuilder(w.queueName, w.redisClient)
 
 	// Remove from active
 	w.redisClient.LRem(ctx, kb.Active(), 1, job.ID)
@@ -308,7 +308,7 @@ func (w *Worker) moveToFailed(ctx context.Context, job *Job, err error) {
 
 // retryJob retries a failed job with backoff
 func (w *Worker) retryJob(ctx context.Context, job *Job, err error) {
-	kb := NewKeyBuilder(w.queueName)
+	kb := NewKeyBuilder(w.queueName, w.redisClient)
 
 	// Increment attempts
 	job.AttemptsMade++
@@ -335,7 +335,7 @@ func (w *Worker) extendLockPeriodically(ctx context.Context, jobID string) {
 	ticker := time.NewTicker(w.opts.HeartbeatInterval)
 	defer ticker.Stop()
 
-	kb := NewKeyBuilder(w.queueName)
+	kb := NewKeyBuilder(w.queueName, w.redisClient)
 	lockKey := kb.Lock(jobID)
 
 	for {
@@ -385,7 +385,7 @@ func (w *Worker) gracefulShutdown() error {
 // This is an optional warning - the worker will function in both single-instance and cluster modes
 func (w *Worker) validateClusterCompatibility() {
 	// Generate sample keys for validation
-	kb := NewKeyBuilder(w.queueName)
+	kb := NewKeyBuilder(w.queueName, w.redisClient)
 	keys := []string{
 		kb.Wait(),
 		kb.Active(),

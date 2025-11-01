@@ -2,13 +2,12 @@ package integration
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/exec"
 	"testing"
 	"time"
 
-	"github.com/Lokeyflow/bullmq-go/pkg/bullmq"
+	"github.com/lokeyflow/bullmq-go/pkg/bullmq"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -242,7 +241,7 @@ func TestRedisClusterHashTags(t *testing.T) {
 		t.Logf("✅ Job added: %s", job.ID)
 
 		// Verify job is in wait queue
-		kb := bullmq.NewKeyBuilder(queueName)
+		kb := bullmq.NewKeyBuilder(queueName, client)
 		waitLen, err := client.LLen(ctx, kb.Wait()).Result()
 		require.NoError(t, err)
 		assert.Equal(t, int64(1), waitLen, "Job should be in wait queue")
@@ -295,7 +294,7 @@ func TestRedisClusterBullMQIntegration(t *testing.T) {
 	t.Logf("✅ Job created: %s", job.ID)
 
 	// Verify all keys are in same slot
-	kb := bullmq.NewKeyBuilder(queueName)
+	kb := bullmq.NewKeyBuilder(queueName, client)
 	keys := []string{
 		kb.Wait(),
 		kb.Active(),

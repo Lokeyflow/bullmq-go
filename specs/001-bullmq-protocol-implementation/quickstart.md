@@ -21,7 +21,7 @@ This guide will help you get started with BullMQ-Go, a production-ready Go clien
 Install the library using `go get`:
 
 ```bash
-go get github.com/Lokeyflow/bullmq-go/pkg/bullmq
+go get github.com/lokeyflow/bullmq-go/pkg/bullmq
 ```
 
 **Requirements**:
@@ -66,7 +66,7 @@ import (
     "time"
 
     "github.com/redis/go-redis/v9"
-    "github.com/Lokeyflow/bullmq-go/pkg/bullmq"
+    "github.com/lokeyflow/bullmq-go/pkg/bullmq"
 )
 
 func main() {
@@ -204,7 +204,7 @@ import (
     "time"
 
     "github.com/redis/go-redis/v9"
-    "github.com/Lokeyflow/bullmq-go/pkg/bullmq"
+    "github.com/lokeyflow/bullmq-go/pkg/bullmq"
 )
 
 func main() {
@@ -357,7 +357,7 @@ import (
     "time"
 
     "github.com/redis/go-redis/v9"
-    "github.com/Lokeyflow/bullmq-go/pkg/bullmq"
+    "github.com/lokeyflow/bullmq-go/pkg/bullmq"
 )
 
 func main() {
@@ -802,7 +802,7 @@ import (
     "github.com/stretchr/testify/require"
     "github.com/testcontainers/testcontainers-go"
     "github.com/testcontainers/testcontainers-go/wait"
-    "github.com/Lokeyflow/bullmq-go/pkg/bullmq"
+    "github.com/lokeyflow/bullmq-go/pkg/bullmq"
 )
 
 func TestWorkerIntegration(t *testing.T) {
@@ -934,7 +934,7 @@ import (
     "testing"
 
     "github.com/stretchr/testify/assert"
-    "github.com/Lokeyflow/bullmq-go/pkg/bullmq"
+    "github.com/lokeyflow/bullmq-go/pkg/bullmq"
 )
 
 // Test job processing logic in isolation
@@ -1064,9 +1064,9 @@ func processEmail(job *bullmq.Job) error {
 ## Next Steps
 
 1. **Explore Examples**: Check [examples/](../examples/) for more use cases
-2. **Read API Docs**: [pkg.go.dev](https://pkg.go.dev/github.com/Lokeyflow/bullmq-go)
-3. **Join Community**: [GitHub Discussions](https://github.com/Lokeyflow/bullmq-go/discussions)
-4. **Report Issues**: [GitHub Issues](https://github.com/Lokeyflow/bullmq-go/issues)
+2. **Read API Docs**: [pkg.go.dev](https://pkg.go.dev/github.com/lokeyflow/bullmq-go)
+3. **Join Community**: [GitHub Discussions](https://github.com/lokeyflow/bullmq-go/discussions)
+4. **Report Issues**: [GitHub Issues](https://github.com/lokeyflow/bullmq-go/issues)
 
 ## Resources
 

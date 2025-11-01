@@ -44,10 +44,42 @@ pkg/bullmq/
 ### Key Design Principles
 
 1. **Protocol Compatibility**: Use official BullMQ Lua scripts (extracted from Node.js repo) for atomic Redis operations
-2. **Redis Cluster Support**: All keys use hash tags `{queue-name}` for cluster compatibility
-3. **Atomicity**: All state transitions use Lua scripts (not MULTI/EXEC) for proper atomicity
-4. **Error Handling**: Categorize errors as transient (retry) or permanent (fail immediately)
-5. **Graceful Degradation**: Worker survives Redis disconnects, graceful shutdown, crash recovery via stalled detection
+2. **Redis Cluster Support**: Automatic hash tag detection - uses `{queue-name}` format only when connected to Redis Cluster
+3. **Cross-Language Compatibility**: Auto-detection ensures jobs are visible between Node.js and Go implementations on both single-instance and cluster Redis
+4. **Atomicity**: All state transitions use Lua scripts (not MULTI/EXEC) for proper atomicity
+5. **Error Handling**: Categorize errors as transient (retry) or permanent (fail immediately)
+6. **Graceful Degradation**: Worker survives Redis disconnects, graceful shutdown, crash recovery via stalled detection
+
+### Redis Key Format Auto-Detection
+
+The library automatically detects whether you're using single-instance Redis or Redis Cluster and adjusts key formats accordingly:
+
+**Single-Instance Redis** (default):
+```
+bull:myqueue:wait        # No hash tags (compatible with Node.js BullMQ)
+bull:myqueue:active
+bull:myqueue:1           # Job ID
+```
+
+**Redis Cluster** (auto-detected):
+```
+bull:{myqueue}:wait      # Hash tags ensure same slot
+bull:{myqueue}:active
+bull:{myqueue}:1
+```
+
+**How it works**:
+- KeyBuilder uses type assertion: `_, isCluster := client.(*redis.ClusterClient)`
+- If cluster detected, all keys use `{queue-name}` hash tag syntax
+- If single-instance, no hash tags are added (matches Node.js behavior)
+- This ensures **cross-language compatibility** - Go workers can process jobs created by Node.js producers and vice versa
+
+**Explicit override** (advanced):
+```go
+// Force hash tags ON or OFF regardless of client type
+kb := bullmq.NewKeyBuilderWithHashTags("myqueue", true)  // Always use hash tags
+kb := bullmq.NewKeyBuilderWithHashTags("myqueue", false) // Never use hash tags
+```
 
 ### Job Lifecycle
 

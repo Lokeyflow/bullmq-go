@@ -1,7 +1,7 @@
 # BullMQ-Go
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/Lokeyflow/bullmq-go.svg)](https://pkg.go.dev/github.com/Lokeyflow/bullmq-go)
-[![Go Report Card](https://goreportcard.com/badge/github.com/Lokeyflow/bullmq-go)](https://goreportcard.com/report/github.com/Lokeyflow/bullmq-go)
+[![Go Reference](https://pkg.go.dev/badge/github.com/lokeyflow/bullmq-go.svg)](https://pkg.go.dev/github.com/lokeyflow/bullmq-go)
+[![Go Report Card](https://goreportcard.com/badge/github.com/lokeyflow/bullmq-go)](https://goreportcard.com/report/github.com/lokeyflow/bullmq-go)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A Go client library for [BullMQ](https://github.com/taskforcesh/bullmq), providing full protocol compatibility with Node.js BullMQ. Build reliable, distributed job queues using Redis with Go workers and producers that seamlessly interoperate with Node.js BullMQ applications.
@@ -9,11 +9,12 @@ A Go client library for [BullMQ](https://github.com/taskforcesh/bullmq), providi
 ## Features
 
 - **Full BullMQ Protocol Compatibility** - Works seamlessly with Node.js BullMQ producers and workers
+- **Cross-Language Compatibility** - Auto-detects Redis mode and adjusts key formats for perfect interoperability
 - **Worker API** - Consume jobs with configurable concurrency, retry logic, and stalled job recovery
 - **Producer API** - Add jobs with priority, delay, and scheduling options
 - **Queue Management API** - Pause, resume, clean, and monitor queues
 - **Atomic Operations** - Uses official BullMQ Lua scripts for race-free job state management
-- **Redis Cluster Support** - Hash tags ensure all queue operations work in clustered environments
+- **Redis Cluster Support** - Automatic hash tag detection and cluster-aware key formatting
 - **Progress & Logs** - Real-time job progress tracking and log collection
 - **Retry Logic** - Configurable exponential backoff with transient error detection
 - **Observability** - Prometheus metrics and structured logging
@@ -22,7 +23,7 @@ A Go client library for [BullMQ](https://github.com/taskforcesh/bullmq), providi
 ## Installation
 
 ```bash
-go get github.com/Lokeyflow/bullmq-go
+go get github.com/lokeyflow/bullmq-go
 ```
 
 ## Quick Start
@@ -38,7 +39,7 @@ import (
     "log"
 
     "github.com/redis/go-redis/v9"
-    "github.com/Lokeyflow/bullmq-go/pkg/bullmq"
+    "github.com/lokeyflow/bullmq-go/pkg/bullmq"
 )
 
 func main() {
@@ -84,7 +85,7 @@ import (
     "time"
 
     "github.com/redis/go-redis/v9"
-    "github.com/Lokeyflow/bullmq-go/pkg/bullmq"
+    "github.com/lokeyflow/bullmq-go/pkg/bullmq"
 )
 
 func main() {
@@ -130,7 +131,7 @@ import (
     "time"
 
     "github.com/redis/go-redis/v9"
-    "github.com/Lokeyflow/bullmq-go/pkg/bullmq"
+    "github.com/lokeyflow/bullmq-go/pkg/bullmq"
 )
 
 func main() {
@@ -200,6 +201,40 @@ worker.Process(func(job *bullmq.Job) error {
 
 worker.Start(ctx)
 ```
+
+### Automatic Redis Mode Detection
+
+BullMQ-Go automatically detects whether you're using single-instance Redis or Redis Cluster and adjusts key formats accordingly. This ensures perfect compatibility with Node.js BullMQ in both environments:
+
+**Single-Instance Redis** (default):
+- Keys use format: `bull:myqueue:wait` (no hash tags)
+- Matches Node.js BullMQ default behavior
+- Go and Node.js workers/producers can interoperate seamlessly
+
+**Redis Cluster**:
+- Keys use format: `bull:{myqueue}:wait` (with hash tags)
+- Hash tags ensure all queue keys hash to the same slot
+- Enables multi-key Lua script execution in cluster mode
+
+**How it works**:
+```go
+// Single-instance Redis - no hash tags
+client := redis.NewClient(&redis.Options{Addr: "localhost:6379"})
+queue := bullmq.NewQueue("myqueue", client)
+// Keys: bull:myqueue:wait, bull:myqueue:active, ...
+
+// Redis Cluster - automatic hash tags
+cluster := redis.NewClusterClient(&redis.ClusterOptions{
+    Addrs: []string{"localhost:7001", "localhost:7002", "localhost:7003"},
+})
+queue := bullmq.NewQueue("myqueue", cluster)
+// Keys: bull:{myqueue}:wait, bull:{myqueue}:active, ...
+```
+
+**Why this matters**:
+- v0.1.0 always used hash tags, breaking compatibility with Node.js on single-instance Redis
+- v0.1.1+ auto-detects and matches Node.js behavior in both modes
+- Jobs created by Node.js are now visible to Go workers and vice versa
 
 ## Advanced Features
 
@@ -334,7 +369,7 @@ worker := bullmq.NewWorker("myqueue", redisClient, bullmq.WorkerOptions{
     // Lock duration (how long a worker can hold a job)
     LockDuration: 30 * time.Second,
 
-    // How often to extend the lock (heartbeat)
+    // How often tolokeyflowhe lock (heartbeat)
     HeartbeatInterval: 15 * time.Second,
 
     // How often to check for stalled jobs
@@ -455,7 +490,7 @@ cd tests/compatibility
 npm install
 npm run test:node-to-go
 
-# Test Go → Node.js interoperability
+# Test Go → Node.js interoperabilitylokeyflow
 npm run test:go-to-node
 
 # Shadow test (both workers running concurrently)
@@ -469,7 +504,7 @@ npm run test:shadow
 - **BullMQ** (Node.js): v5.x for cross-language compatibility
 
 ## Performance
-
+lokeyflow
 Based on load testing with 10 concurrent workers processing 1000+ jobs:
 
 - **Job pickup latency**: < 10ms (p95)
@@ -519,8 +554,8 @@ kubectl port-forward pod/redis 6379:6379
 
 # Option 3: Rancher Desktop (nerdctl)
 nerdctl run -d -p 6379:6379 redis:7-alpine
-
-# Run tests
+lokeyflow
+# Run testslokeyflow
 go test ./...
 
 # Run linter

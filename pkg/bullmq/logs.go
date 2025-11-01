@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Lokeyflow/bullmq-go/pkg/bullmq/scripts"
+	"github.com/lokeyflow/bullmq-go/pkg/bullmq/scripts"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -24,13 +24,13 @@ type LogEntry struct {
 // LogManager handles atomic log operations using Lua scripts
 type LogManager struct {
 	queueName    string
-	redisClient  *redis.Client
+	redisClient  redis.Cmdable
 	scriptLoader *scripts.ScriptLoader
 	maxLogs      int
 }
 
 // NewLogManager creates a new log manager
-func NewLogManager(queueName string, redisClient *redis.Client, maxLogs int) *LogManager {
+func NewLogManager(queueName string, redisClient redis.Cmdable, maxLogs int) *LogManager {
 	if maxLogs <= 0 {
 		maxLogs = DefaultMaxLogs
 	}
@@ -53,7 +53,7 @@ func NewLogManager(queueName string, redisClient *redis.Client, maxLogs int) *Lo
 //   - Total log count after addition (capped at maxLogs)
 //   - -1: Job not found
 func (lm *LogManager) AddLog(ctx context.Context, jobID string, message string) (int64, error) {
-	kb := NewKeyBuilder(lm.queueName)
+	kb := NewKeyBuilder(lm.queueName, lm.redisClient)
 
 	// Create log entry
 	logEntry := LogEntry{
@@ -101,7 +101,7 @@ func (lm *LogManager) AddLog(ctx context.Context, jobID string, message string) 
 
 // GetLogs retrieves all logs for a job
 func (lm *LogManager) GetLogs(ctx context.Context, jobID string) ([]LogEntry, error) {
-	kb := NewKeyBuilder(lm.queueName)
+	kb := NewKeyBuilder(lm.queueName, lm.redisClient)
 	logsKey := kb.Logs(jobID)
 
 	// Get all logs from list

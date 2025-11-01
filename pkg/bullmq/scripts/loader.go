@@ -11,13 +11,13 @@ import (
 
 // ScriptLoader manages Lua scripts with SHA1 caching for EVALSHA optimization
 type ScriptLoader struct {
-	client      *redis.Client
+	client      redis.Cmdable
 	scriptCache map[string]*redis.Script
 	mu          sync.RWMutex
 }
 
 // NewScriptLoader creates a new script loader
-func NewScriptLoader(client *redis.Client) *ScriptLoader {
+func NewScriptLoader(client redis.Cmdable) *ScriptLoader {
 	return &ScriptLoader{
 		client:      client,
 		scriptCache: make(map[string]*redis.Script),

@@ -42,7 +42,7 @@ var DefaultWorkerOptions = WorkerOptions{
 // Worker consumes jobs from a queue
 type Worker struct {
 	queueName        string
-	redisClient      *redis.Client
+	redisClient      redis.Cmdable
 	opts             WorkerOptions
 	processor        JobProcessor
 	heartbeatManager *HeartbeatManager
@@ -60,7 +60,8 @@ type Worker struct {
 type JobProcessor func(*Job) error
 
 // NewWorker creates a new worker instance
-func NewWorker(queueName string, redisClient *redis.Client, opts WorkerOptions) *Worker {
+// Accepts both *redis.Client and *redis.ClusterClient via redis.Cmdable interface
+func NewWorker(queueName string, redisClient redis.Cmdable, opts WorkerOptions) *Worker {
 	// Generate WorkerID if not provided
 	if opts.WorkerID == "" {
 		opts.WorkerID = generateWorkerID()

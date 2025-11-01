@@ -10,7 +10,7 @@ Get started with BullMQ-Go in 5 minutes.
 ## Installation
 
 ```bash
-go get github.com/Lokeyflow/bullmq-go/pkg/bullmq
+go get github.com/lokeyflow/bullmq-go/pkg/bullmq
 ```
 
 ## Step 1: Start Redis
@@ -34,7 +34,7 @@ package main
 import (
     "context"
     "log"
-    "github.com/Lokeyflow/bullmq-go/pkg/bullmq"
+    "github.com/lokeyflow/bullmq-go/pkg/bullmq"
     "github.com/redis/go-redis/v9"
 )
 
@@ -66,7 +66,7 @@ import (
     "context"
     "fmt"
     "log"
-    "github.com/Lokeyflow/bullmq-go/pkg/bullmq"
+    "github.com/lokeyflow/bullmq-go/pkg/bullmq"
     "github.com/redis/go-redis/v9"
 )
 
@@ -106,5 +106,5 @@ Processing: hello world
 ## Next Steps
 
 - [Full Examples](examples/)
-- [API Documentation](https://pkg.go.dev/github.com/Lokeyflow/bullmq-go)
+- [API Documentation](https://pkg.go.dev/github.com/lokeyflow/bullmq-go)
 - [Advanced Features](README.md#advanced-features)

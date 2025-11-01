@@ -55,7 +55,7 @@ func (sc *StalledChecker) Start(ctx context.Context) {
 func (sc *StalledChecker) checkStalledJobs(ctx context.Context) {
 	sc.checkCount++
 
-	kb := NewKeyBuilder(sc.worker.queueName)
+	kb := NewKeyBuilder(sc.worker.queueName, sc.worker.redisClient)
 	activeKey := kb.Active()
 
 	// Get all active jobs
@@ -74,7 +74,7 @@ func (sc *StalledChecker) checkStalledJobs(ctx context.Context) {
 
 // isJobStalled checks if a job's lock has expired
 func (sc *StalledChecker) isJobStalled(ctx context.Context, jobID string) bool {
-	kb := NewKeyBuilder(sc.worker.queueName)
+	kb := NewKeyBuilder(sc.worker.queueName, sc.worker.redisClient)
 	lockKey := kb.Lock(jobID)
 
 	// Check if lock exists
@@ -89,7 +89,7 @@ func (sc *StalledChecker) isJobStalled(ctx context.Context, jobID string) bool {
 
 // recoverStalledJob moves a stalled job back to wait queue
 func (sc *StalledChecker) recoverStalledJob(ctx context.Context, jobID string) {
-	kb := NewKeyBuilder(sc.worker.queueName)
+	kb := NewKeyBuilder(sc.worker.queueName, sc.worker.redisClient)
 
 	// Get job data to check attempts
 	jobData, err := sc.worker.redisClient.HGetAll(ctx, kb.Job(jobID)).Result()

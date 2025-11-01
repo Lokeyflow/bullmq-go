@@ -31,12 +31,12 @@ const (
 // EventEmitter publishes events to Redis streams
 type EventEmitter struct {
 	queueName   string
-	redisClient *redis.Client
+	redisClient redis.Cmdable
 	maxLen      int64
 }
 
 // NewEventEmitter creates a new event emitter
-func NewEventEmitter(queueName string, redisClient *redis.Client, maxLen int64) *EventEmitter {
+func NewEventEmitter(queueName string, redisClient redis.Cmdable, maxLen int64) *EventEmitter {
 	return &EventEmitter{
 		queueName:   queueName,
 		redisClient: redisClient,
@@ -46,7 +46,7 @@ func NewEventEmitter(queueName string, redisClient *redis.Client, maxLen int64) 
 
 // Emit publishes an event to the Redis stream
 func (ee *EventEmitter) Emit(ctx context.Context, event Event) error {
-	kb := NewKeyBuilder(ee.queueName)
+	kb := NewKeyBuilder(ee.queueName, ee.redisClient)
 	streamKey := kb.Events()
 
 	// Convert event to map for XADD
