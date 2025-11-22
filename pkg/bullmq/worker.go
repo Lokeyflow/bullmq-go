@@ -57,7 +57,8 @@ type Worker struct {
 }
 
 // JobProcessor is the function signature for job processing
-type JobProcessor func(*Job) error
+// Returns (result, error) matching BullMQ's async processor pattern
+type JobProcessor func(*Job) (interface{}, error)
 
 // NewWorker creates a new worker instance
 // Accepts both *redis.Client and *redis.ClusterClient via redis.Cmdable interface

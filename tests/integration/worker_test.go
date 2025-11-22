@@ -37,9 +37,9 @@ func TestWorker_PickupFromWaitQueue(t *testing.T) {
 	worker := bullmq.NewWorker(queueName, rdb, bullmq.DefaultWorkerOptions)
 	processed := make(chan string, 1)
 
-	worker.Process(func(job *bullmq.Job) error {
+	worker.Process(func(job *bullmq.Job) (interface{}, error) {
 		processed <- job.ID
-		return nil
+		return nil, nil
 	})
 
 	go worker.Start(ctx)
@@ -79,9 +79,9 @@ func TestWorker_PickupPriorityOrder(t *testing.T) {
 	worker := bullmq.NewWorker(queueName, rdb, bullmq.DefaultWorkerOptions)
 	processedIDs := make(chan string, 2)
 
-	worker.Process(func(job *bullmq.Job) error {
+	worker.Process(func(job *bullmq.Job) (interface{}, error) {
 		processedIDs <- job.ID
-		return nil
+		return nil, nil
 	})
 
 	go worker.Start(ctx)
@@ -117,9 +117,9 @@ func TestWorker_RespectsPausedQueue(t *testing.T) {
 	worker := bullmq.NewWorker(queueName, rdb, bullmq.DefaultWorkerOptions)
 	processed := make(chan string, 1)
 
-	worker.Process(func(job *bullmq.Job) error {
+	worker.Process(func(job *bullmq.Job) (interface{}, error) {
 		processed <- job.ID
-		return nil
+		return nil, nil
 	})
 
 	go worker.Start(ctx)
@@ -161,10 +161,10 @@ func TestWorker_LockAcquiredWithUUIDv4(t *testing.T) {
 	worker := bullmq.NewWorker(queueName, rdb, bullmq.DefaultWorkerOptions)
 	started := make(chan string, 1)
 
-	worker.Process(func(job *bullmq.Job) error {
+	worker.Process(func(job *bullmq.Job) (interface{}, error) {
 		started <- job.ID
 		time.Sleep(500 * time.Millisecond) // Keep job active
-		return nil
+		return nil, nil
 	})
 
 	go worker.Start(ctx)
@@ -210,10 +210,10 @@ func TestWorker_AtomicWaitToActive(t *testing.T) {
 	worker := bullmq.NewWorker(queueName, rdb, bullmq.DefaultWorkerOptions)
 	started := make(chan string, 1)
 
-	worker.Process(func(job *bullmq.Job) error {
+	worker.Process(func(job *bullmq.Job) (interface{}, error) {
 		started <- job.ID
 		time.Sleep(300 * time.Millisecond)
-		return nil
+		return nil, nil
 	})
 
 	go worker.Start(ctx)
@@ -257,10 +257,10 @@ func TestWorker_LockTTL(t *testing.T) {
 	worker := bullmq.NewWorker(queueName, rdb, opts)
 	started := make(chan string, 1)
 
-	worker.Process(func(job *bullmq.Job) error {
+	worker.Process(func(job *bullmq.Job) (interface{}, error) {
 		started <- job.ID
 		time.Sleep(500 * time.Millisecond)
-		return nil
+		return nil, nil
 	})
 
 	go worker.Start(ctx)
@@ -299,8 +299,8 @@ func TestWorker_MoveToCompleted(t *testing.T) {
 
 	// Create worker
 	worker := bullmq.NewWorker(queueName, rdb, bullmq.DefaultWorkerOptions)
-	worker.Process(func(job *bullmq.Job) error {
-		return nil // Success
+	worker.Process(func(job *bullmq.Job) (interface{}, error) {
+		return nil, nil // Success
 	})
 
 	go worker.Start(ctx)
@@ -339,8 +339,8 @@ func TestWorker_MoveToFailed(t *testing.T) {
 
 	// Create worker that fails
 	worker := bullmq.NewWorker(queueName, rdb, bullmq.DefaultWorkerOptions)
-	worker.Process(func(job *bullmq.Job) error {
-		return &bullmq.PermanentError{Err: errors.New("test error")}
+	worker.Process(func(job *bullmq.Job) (interface{}, error) {
+		return nil, &bullmq.PermanentError{Err: errors.New("test error")}
 	})
 
 	go worker.Start(ctx)
@@ -380,8 +380,8 @@ func TestWorker_RemoveOnComplete(t *testing.T) {
 
 	// Create worker
 	worker := bullmq.NewWorker(queueName, rdb, bullmq.DefaultWorkerOptions)
-	worker.Process(func(job *bullmq.Job) error {
-		return nil
+	worker.Process(func(job *bullmq.Job) (interface{}, error) {
+		return nil, nil
 	})
 
 	go worker.Start(ctx)

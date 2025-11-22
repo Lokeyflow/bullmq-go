@@ -2,7 +2,6 @@ package bullmq
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -45,24 +44,32 @@ func NewEventEmitter(queueName string, redisClient redis.Cmdable, maxLen int64) 
 }
 
 // Emit publishes an event to the Redis stream
+// Events are stored as direct stream fields to match Node.js BullMQ format
 func (ee *EventEmitter) Emit(ctx context.Context, event Event) error {
 	kb := NewKeyBuilder(ee.queueName, ee.redisClient)
 	streamKey := kb.Events()
 
-	// Convert event to map for XADD
-	eventJSON, err := json.Marshal(event)
-	if err != nil {
-		return err
+	// Convert event to direct fields (matches Node.js BullMQ and Lua scripts)
+	values := map[string]interface{}{
+		"event":        event.EventType,
+		"jobId":        event.JobID,
+		"timestamp":    event.Timestamp,
+		"attemptsMade": event.AttemptsMade,
+	}
+
+	// Add optional data fields if present
+	if event.Data != nil {
+		for k, v := range event.Data {
+			values[k] = v
+		}
 	}
 
 	// Publish to stream with MAXLEN
-	_, err = ee.redisClient.XAdd(ctx, &redis.XAddArgs{
+	_, err := ee.redisClient.XAdd(ctx, &redis.XAddArgs{
 		Stream: streamKey,
 		MaxLen: ee.maxLen,
 		Approx: true, // Use approximate trimming for performance
-		Values: map[string]interface{}{
-			"event": string(eventJSON),
-		},
+		Values: values,
 	}).Result()
 
 	return err
@@ -123,6 +130,29 @@ func (ee *EventEmitter) EmitProgress(ctx context.Context, job *Job, progress int
 		AttemptsMade: job.AttemptsMade,
 		Data: map[string]interface{}{
 			"progress": progress,
+		},
+	})
+}
+
+// EmitStalled emits a stalled event
+func (ee *EventEmitter) EmitStalled(ctx context.Context, job *Job) error {
+	return ee.Emit(ctx, Event{
+		EventType:    EventStalled,
+		JobID:        job.ID,
+		Timestamp:    time.Now().UnixMilli(),
+		AttemptsMade: job.AttemptsMade,
+	})
+}
+
+// EmitRetry emits a retry event
+func (ee *EventEmitter) EmitRetry(ctx context.Context, job *Job, delay int64) error {
+	return ee.Emit(ctx, Event{
+		EventType:    EventRetry,
+		JobID:        job.ID,
+		Timestamp:    time.Now().UnixMilli(),
+		AttemptsMade: job.AttemptsMade,
+		Data: map[string]interface{}{
+			"delay": delay,
 		},
 	})
 }

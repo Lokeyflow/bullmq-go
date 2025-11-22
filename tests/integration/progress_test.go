@@ -29,13 +29,13 @@ func TestProgress_StoresInJobHash(t *testing.T) {
 	worker := bullmq.NewWorker(queueName, rdb, bullmq.DefaultWorkerOptions)
 
 	progressUpdated := make(chan bool, 1)
-	worker.Process(func(job *bullmq.Job) error {
+	worker.Process(func(job *bullmq.Job) (interface{}, error) {
 		// Update progress to 50%
 		job.UpdateProgress(50)
 		progressUpdated <- true
 
 		time.Sleep(200 * time.Millisecond)
-		return nil
+		return nil, nil
 	})
 
 	go worker.Start(ctx)
@@ -67,10 +67,10 @@ func TestProgress_EmitsProgressEvent(t *testing.T) {
 	// Create worker
 	worker := bullmq.NewWorker(queueName, rdb, bullmq.DefaultWorkerOptions)
 
-	worker.Process(func(job *bullmq.Job) error {
+	worker.Process(func(job *bullmq.Job) (interface{}, error) {
 		job.UpdateProgress(75)
 		time.Sleep(200 * time.Millisecond)
-		return nil
+		return nil, nil
 	})
 
 	go worker.Start(ctx)
@@ -114,13 +114,13 @@ func TestProgress_AppendsLog(t *testing.T) {
 	worker := bullmq.NewWorker(queueName, rdb, bullmq.DefaultWorkerOptions)
 
 	logAdded := make(chan bool, 1)
-	worker.Process(func(job *bullmq.Job) error {
+	worker.Process(func(job *bullmq.Job) (interface{}, error) {
 		job.Log("Processing started")
 		job.Log("Step 1 complete")
 		logAdded <- true
 
 		time.Sleep(200 * time.Millisecond)
-		return nil
+		return nil, nil
 	})
 
 	go worker.Start(ctx)
@@ -157,12 +157,12 @@ func TestProgress_LogTrimmedTo1000(t *testing.T) {
 	// Create worker
 	worker := bullmq.NewWorker(queueName, rdb, bullmq.DefaultWorkerOptions)
 
-	worker.Process(func(job *bullmq.Job) error {
+	worker.Process(func(job *bullmq.Job) (interface{}, error) {
 		// Add 1500 log entries
 		for i := 0; i < 1500; i++ {
 			job.Log("Log entry " + string(rune(i)))
 		}
-		return nil
+		return nil, nil
 	})
 
 	go worker.Start(ctx)

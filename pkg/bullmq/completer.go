@@ -57,8 +57,8 @@ func (c *Completer) Complete(ctx context.Context, job *Job, returnValue interfac
 	// Release lock
 	c.worker.redisClient.Del(ctx, kb.Lock(job.ID))
 
-	// Emit completed event
-	c.emitCompletedEvent(ctx, job)
+	// Emit completed event with return value
+	c.worker.eventEmitter.EmitCompleted(ctx, job, returnValue)
 
 	return nil
 }

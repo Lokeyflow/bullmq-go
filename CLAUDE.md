@@ -327,13 +327,13 @@ go run examples/producer/main.go
 
 ```go
 // Pattern 1: Idempotency key check
-worker.Process(func(job *bullmq.Job) error {
+worker.Process(func(job *bullmq.Job) (interface{}, error) {
     jobID := job.ID
 
     // Check if already processed
     exists, _ := db.Exec("SELECT 1 FROM processed_jobs WHERE job_id = ?", jobID)
     if exists {
-        return nil // Already processed, skip
+        return nil, nil // Already processed, skip
     }
 
     // Process job
@@ -341,11 +341,11 @@ worker.Process(func(job *bullmq.Job) error {
 
     // Mark as processed (atomic with business logic)
     db.Exec("INSERT INTO processed_jobs (job_id, result) VALUES (?, ?)", jobID, result)
-    return nil
+    return result, nil
 })
 
 // Pattern 2: Database unique constraint
-worker.Process(func(job *bullmq.Job) error {
+worker.Process(func(job *bullmq.Job) (interface{}, error) {
     orderID := job.Data["orderId"]
 
     // Insert with UNIQUE constraint on order_id
@@ -354,35 +354,35 @@ worker.Process(func(job *bullmq.Job) error {
         "INSERT INTO orders (order_id, status) VALUES (?, ?) ON CONFLICT DO NOTHING",
         orderID, "processed",
     )
-    return err
+    return map[string]interface{}{"orderId": orderID}, err
 })
 
 // Pattern 3: External system idempotency token
-worker.Process(func(job *bullmq.Job) error {
+worker.Process(func(job *bullmq.Job) (interface{}, error) {
     // Stripe, PayPal, etc. support idempotency keys
     payment := stripe.CreateCharge(&stripe.ChargeParams{
         Amount:         job.Data["amount"],
         IdempotencyKey: job.ID, // Use job ID as idempotency token
     })
-    return payment.Error
+    return payment, payment.Error
 })
 ```
 
 **Non-Idempotent Example (AVOID)**:
 ```go
 // BAD: Will send duplicate emails on retry
-worker.Process(func(job *bullmq.Job) error {
+worker.Process(func(job *bullmq.Job) (interface{}, error) {
     sendEmail(job.Data["to"], job.Data["subject"])
-    return nil
+    return nil, nil
 })
 
 // GOOD: Check if email already sent
-worker.Process(func(job *bullmq.Job) error {
+worker.Process(func(job *bullmq.Job) (interface{}, error) {
     if !emailAlreadySent(job.ID) {
         sendEmail(job.Data["to"], job.Data["subject"])
         markEmailSent(job.ID)
     }
-    return nil
+    return map[string]interface{}{"sent": true}, nil
 })
 ```
 

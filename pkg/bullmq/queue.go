@@ -7,10 +7,11 @@ import (
 
 // Queue manages job submission and queue operations
 type Queue struct {
-	name        string
-	redisClient redis.Cmdable
-	keyBuilder  *KeyBuilder
-	scripts     *scripts.ScriptLoader
+	name         string
+	redisClient  redis.Cmdable
+	keyBuilder   *KeyBuilder
+	scripts      *scripts.ScriptLoader
+	eventEmitter *EventEmitter
 }
 
 // JobCounts represents queue statistics
@@ -30,9 +31,10 @@ func NewQueue(name string, redisClient redis.Cmdable) *Queue {
 	scriptLoader.LoadAll()
 
 	return &Queue{
-		name:        name,
-		redisClient: redisClient,
-		keyBuilder:  NewKeyBuilder(name, redisClient),
-		scripts:     scriptLoader,
+		name:         name,
+		redisClient:  redisClient,
+		keyBuilder:   NewKeyBuilder(name, redisClient),
+		scripts:      scriptLoader,
+		eventEmitter: NewEventEmitter(name, redisClient, 10000),
 	}
 }

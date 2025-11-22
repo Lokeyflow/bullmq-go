@@ -32,13 +32,13 @@ func TestRetry_TransientErrorWithBackoff(t *testing.T) {
 	worker := bullmq.NewWorker(queueName, rdb, bullmq.DefaultWorkerOptions)
 
 	attemptCount := 0
-	worker.Process(func(job *bullmq.Job) error {
+	worker.Process(func(job *bullmq.Job) (interface{}, error) {
 		attemptCount++
 		if attemptCount < 3 {
 			// Return transient error
-			return &bullmq.TransientError{Err: errors.New("network timeout")}
+			return nil, &bullmq.TransientError{Err: errors.New("network timeout")}
 		}
-		return nil // Success on 3rd attempt
+		return nil, nil // Success on 3rd attempt
 	})
 
 	go worker.Start(ctx)
@@ -79,10 +79,10 @@ func TestRetry_PermanentErrorNoRetry(t *testing.T) {
 	worker := bullmq.NewWorker(queueName, rdb, bullmq.DefaultWorkerOptions)
 
 	attemptCount := 0
-	worker.Process(func(job *bullmq.Job) error {
+	worker.Process(func(job *bullmq.Job) (interface{}, error) {
 		attemptCount++
 		// Return permanent error
-		return &bullmq.PermanentError{Err: errors.New("invalid data")}
+		return nil, &bullmq.PermanentError{Err: errors.New("invalid data")}
 	})
 
 	go worker.Start(ctx)
@@ -119,9 +119,9 @@ func TestRetry_ExceedMaxAttempts(t *testing.T) {
 	// Create worker
 	worker := bullmq.NewWorker(queueName, rdb, bullmq.DefaultWorkerOptions)
 
-	worker.Process(func(job *bullmq.Job) error {
+	worker.Process(func(job *bullmq.Job) (interface{}, error) {
 		// Always fail with transient error
-		return &bullmq.TransientError{Err: errors.New("always fails")}
+		return nil, &bullmq.TransientError{Err: errors.New("always fails")}
 	})
 
 	go worker.Start(ctx)
@@ -194,12 +194,12 @@ func TestRetry_EmitsRetryEvent(t *testing.T) {
 	worker := bullmq.NewWorker(queueName, rdb, bullmq.DefaultWorkerOptions)
 
 	attemptCount := 0
-	worker.Process(func(job *bullmq.Job) error {
+	worker.Process(func(job *bullmq.Job) (interface{}, error) {
 		attemptCount++
 		if attemptCount == 1 {
-			return &bullmq.TransientError{Err: errors.New("retry me")}
+			return nil, &bullmq.TransientError{Err: errors.New("retry me")}
 		}
-		return nil
+		return nil, nil
 	})
 
 	go worker.Start(ctx)

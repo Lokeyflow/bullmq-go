@@ -1,0 +1,18 @@
+{
+  "name": "bullmq-go-compatibility-tests",
+  "version": "1.0.0",
+  "description": "Cross-language compatibility tests for bullmq-go",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "bullmq": "^5.62.0",
+    "ioredis": "^5.3.2"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test:node-to-go": "node nodejs_to_go_test.js",
+    "test:go-to-node": "node go_to_nodejs_test.js",
+    "test:shadow": "node shadow_test.js",
+    "test:all": "npm run test:node-to-go && npm run test:go-to-node && npm run test:shadow"
+  }
+}

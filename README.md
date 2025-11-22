@@ -54,7 +54,7 @@ func main() {
     })
 
     // Define job processor
-    worker.Process(func(job *bullmq.Job) error {
+    worker.Process(func(job *bullmq.Job) (interface{}, error) {
         fmt.Printf("Processing job %s: %v\n", job.ID, job.Data)
 
         // Your business logic here
@@ -62,7 +62,12 @@ func main() {
         // Update progress: job.UpdateProgress(50)
         // Add logs: job.Log("Processing step 1")
 
-        return nil // Return nil for success, error for failure
+        // Return result and error (nil, nil for success)
+        result := map[string]interface{}{
+            "processedAt": time.Now(),
+            "status": "success",
+        }
+        return result, nil
     })
 
     // Start worker
@@ -190,13 +195,19 @@ await queue.add('send-email', {
 ```go
 worker := bullmq.NewWorker("myqueue", redisClient, bullmq.WorkerOptions{})
 
-worker.Process(func(job *bullmq.Job) error {
+worker.Process(func(job *bullmq.Job) (interface{}, error) {
     to := job.Data["to"].(string)
     subject := job.Data["subject"].(string)
     body := job.Data["body"].(string)
 
     // Process the email
-    return sendEmail(to, subject, body)
+    err := sendEmail(to, subject, body)
+    if err != nil {
+        return nil, err
+    }
+
+    // Return result
+    return map[string]interface{}{"sentTo": to}, nil
 })
 
 worker.Start(ctx)
@@ -241,7 +252,7 @@ queue := bullmq.NewQueue("myqueue", cluster)
 ### Progress Tracking
 
 ```go
-worker.Process(func(job *bullmq.Job) error {
+worker.Process(func(job *bullmq.Job) (interface{}, error) {
     job.UpdateProgress(0)
     job.Log("Starting processing")
 
@@ -256,11 +267,11 @@ worker.Process(func(job *bullmq.Job) error {
     job.Log("Step 2 complete")
 
     // Step 3
-    doStep3()
+    result := doStep3()
     job.UpdateProgress(100)
     job.Log("Processing complete")
 
-    return nil
+    return result, nil
 })
 ```
 
@@ -323,13 +334,13 @@ job, err := queue.Add("task", data, bullmq.JobOptions{
 The library automatically categorizes errors as transient (retry) or permanent (fail immediately):
 
 ```go
-worker.Process(func(job *bullmq.Job) error {
+worker.Process(func(job *bullmq.Job) (interface{}, error) {
     // Transient errors (will retry):
     // - Network timeouts
     // - Redis connection errors
     // - HTTP 5xx errors
     if err := callExternalAPI(); err != nil {
-        return err // Will retry with exponential backoff
+        return nil, err // Will retry with exponential backoff
     }
 
     // Permanent errors (will not retry):
@@ -337,10 +348,10 @@ worker.Process(func(job *bullmq.Job) error {
     // - HTTP 4xx errors
     // - Business logic violations
     if !isValid(job.Data) {
-        return &bullmq.ValidationError{Message: "Invalid data"}
+        return nil, &bullmq.ValidationError{Message: "Invalid data"}
     }
 
-    return nil
+    return map[string]interface{}{"status": "success"}, nil
 })
 ```
 

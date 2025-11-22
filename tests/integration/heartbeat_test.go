@@ -33,7 +33,7 @@ func TestHeartbeat_ExtendsLockEvery15s(t *testing.T) {
 	lockKey := "bull:{" + queueName + "}:" + job.ID + ":lock"
 	started := make(chan bool, 1)
 
-	worker.Process(func(job *bullmq.Job) error {
+	worker.Process(func(job *bullmq.Job) (interface{}, error) {
 		started <- true
 
 		// Get initial TTL
@@ -49,7 +49,7 @@ func TestHeartbeat_ExtendsLockEvery15s(t *testing.T) {
 		assert.Greater(t, afterTTL.Seconds(), initialTTL.Seconds(),
 			"Lock TTL should be extended by heartbeat")
 
-		return nil
+		return nil, nil
 	})
 
 	go worker.Start(ctx)
@@ -83,11 +83,11 @@ func TestHeartbeat_ContinuesDespiteFailures(t *testing.T) {
 
 	completed := make(chan bool, 1)
 
-	worker.Process(func(job *bullmq.Job) error {
+	worker.Process(func(job *bullmq.Job) (interface{}, error) {
 		// Simulate long job
 		time.Sleep(5 * time.Second)
 		completed <- true
-		return nil
+		return nil, nil
 	})
 
 	go worker.Start(ctx)

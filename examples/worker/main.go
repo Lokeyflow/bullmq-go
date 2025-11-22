@@ -42,7 +42,7 @@ func main() {
 	fmt.Println("📋 Listening for jobs on queue: email-queue")
 
 	// 3. Define job processor
-	worker.Process(func(job *bullmq.Job) error {
+	worker.Process(func(job *bullmq.Job) (interface{}, error) {
 		fmt.Printf("\n[%s] Processing job %s: %s\n", time.Now().Format("15:04:05"), job.ID, job.Name)
 
 		// Extract job data
@@ -58,11 +58,18 @@ func main() {
 		// Simulate email sending
 		if err := sendEmail(to, subject, body); err != nil {
 			fmt.Printf("  ❌ Failed: %v\n", err)
-			return err
+			return nil, err
 		}
 
 		fmt.Printf("  ✅ Email sent successfully!\n")
-		return nil
+
+		// Return result value
+		result := map[string]interface{}{
+			"sentTo":    to,
+			"sentAt":    time.Now().Format(time.RFC3339),
+			"messageId": fmt.Sprintf("msg-%s", job.ID),
+		}
+		return result, nil
 	})
 
 	// 4. Graceful shutdown

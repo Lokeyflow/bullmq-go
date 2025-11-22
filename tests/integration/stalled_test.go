@@ -46,9 +46,9 @@ func TestStalled_RequeuesExpiredLock(t *testing.T) {
 	worker := bullmq.NewWorker(queueName, rdb, opts)
 
 	processed := make(chan string, 1)
-	worker.Process(func(job *bullmq.Job) error {
+	worker.Process(func(job *bullmq.Job) (interface{}, error) {
 		processed <- job.ID
-		return nil
+		return nil, nil
 	})
 
 	go worker.Start(ctx)
@@ -95,9 +95,9 @@ func TestStalled_IncrementsAttemptsMade(t *testing.T) {
 	worker := bullmq.NewWorker(queueName, rdb, opts)
 
 	processed := make(chan bool, 1)
-	worker.Process(func(job *bullmq.Job) error {
+	worker.Process(func(job *bullmq.Job) (interface{}, error) {
 		processed <- true
-		return nil
+		return nil, nil
 	})
 
 	go worker.Start(ctx)
@@ -148,8 +148,8 @@ func TestStalled_EmitsEvent(t *testing.T) {
 	opts.StalledCheckInterval = 2 * time.Second
 	worker := bullmq.NewWorker(queueName, rdb, opts)
 
-	worker.Process(func(job *bullmq.Job) error {
-		return nil
+	worker.Process(func(job *bullmq.Job) (interface{}, error) {
+		return nil, nil
 	})
 
 	go worker.Start(ctx)

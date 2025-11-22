@@ -36,9 +36,9 @@ func TestQueue_PauseStopsProcessing(t *testing.T) {
 	worker := bullmq.NewWorker(queueName, rdb, bullmq.DefaultWorkerOptions)
 	processed := make(chan string, 2)
 
-	worker.Process(func(job *bullmq.Job) error {
+	worker.Process(func(job *bullmq.Job) (interface{}, error) {
 		processed <- job.Name
-		return nil
+		return nil, nil
 	})
 
 	go worker.Start(ctx)
@@ -74,9 +74,9 @@ func TestQueue_ResumeRestartsProcessing(t *testing.T) {
 	worker := bullmq.NewWorker(queueName, rdb, bullmq.DefaultWorkerOptions)
 	processed := make(chan string, 1)
 
-	worker.Process(func(job *bullmq.Job) error {
+	worker.Process(func(job *bullmq.Job) (interface{}, error) {
 		processed <- job.Name
-		return nil
+		return nil, nil
 	})
 
 	go worker.Start(ctx)
@@ -143,7 +143,7 @@ func TestQueue_GetJobCountsAccurate(t *testing.T) {
 	// Add jobs
 	queue.Add(ctx, "job-1", map[string]interface{}{}, bullmq.JobOptions{Attempts: 3, Backoff: bullmq.BackoffConfig{Type: "exponential", Delay: 1000}})
 	queue.Add(ctx, "job-2", map[string]interface{}{}, bullmq.JobOptions{Priority: 5})
-	queue.Add(ctx, "job-3", map[string]interface{}{}, bullmq.JobOptions{Delay: 5000})
+	queue.Add(ctx, "job-3", map[string]interface{}{}, bullmq.JobOptions{Delay: 5 * time.Second})
 
 	// Get counts
 	counts, err := queue.GetJobCounts(ctx)
@@ -211,4 +211,99 @@ func TestQueue_RemoveJobDeletes(t *testing.T) {
 	waitKey := "bull:{" + queueName + "}:wait"
 	waitLen, _ := rdb.LLen(ctx, waitKey).Result()
 	assert.Equal(t, int64(0), waitLen)
+}
+
+// T108: Drain removes all jobs from all queues
+func TestQueue_DrainRemovesAllJobs(t *testing.T) {
+	ctx := context.Background()
+	rdb := redis.NewClient(&redis.Options{Addr: "localhost:6379", DB: 15})
+	defer rdb.Close()
+	require.NoError(t, rdb.FlushDB(ctx).Err())
+
+	queueName := "test-drain-queue"
+	queue := bullmq.NewQueue(queueName, rdb)
+	kb := bullmq.NewKeyBuilder(queueName, rdb)
+
+	// Add jobs to different queues
+	// 1. Wait queue (priority=0, no delay)
+	job1, err := queue.Add(ctx, "wait-job", map[string]interface{}{"type": "wait"}, bullmq.JobOptions{})
+	require.NoError(t, err)
+
+	// 2. Prioritized queue (priority>0)
+	job2, err := queue.Add(ctx, "priority-job", map[string]interface{}{"type": "priority"}, bullmq.JobOptions{Priority: 10})
+	require.NoError(t, err)
+
+	// 3. Delayed queue (delay>0)
+	job3, err := queue.Add(ctx, "delayed-job", map[string]interface{}{"type": "delayed"}, bullmq.JobOptions{Delay: 60 * time.Second})
+	require.NoError(t, err)
+
+	// 4. Manually add jobs to completed and failed queues to test those as well
+	job4ID := "completed-job-id"
+	job5ID := "failed-job-id"
+
+	// Create job hashes for completed/failed jobs
+	rdb.HSet(ctx, kb.Job(job4ID), "id", job4ID, "name", "completed-job", "data", "{}")
+	rdb.HSet(ctx, kb.Job(job5ID), "id", job5ID, "name", "failed-job", "data", "{}")
+
+	// Add to completed and failed queues
+	rdb.ZAdd(ctx, kb.Completed(), redis.Z{Score: float64(time.Now().UnixMilli()), Member: job4ID})
+	rdb.ZAdd(ctx, kb.Failed(), redis.Z{Score: float64(time.Now().UnixMilli()), Member: job5ID})
+
+	// Add logs to one of the jobs
+	logsKey := kb.Logs(job1.ID)
+	rdb.RPush(ctx, logsKey, "log entry 1", "log entry 2")
+
+	// Verify jobs exist before drain
+	counts, err := queue.GetJobCounts(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), counts.Waiting, "Should have 1 waiting job")
+	assert.Equal(t, int64(1), counts.Prioritized, "Should have 1 prioritized job")
+	assert.Equal(t, int64(1), counts.Delayed, "Should have 1 delayed job")
+	assert.Equal(t, int64(1), counts.Completed, "Should have 1 completed job")
+	assert.Equal(t, int64(1), counts.Failed, "Should have 1 failed job")
+
+	// Drain queue
+	removed, err := queue.Drain(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, 5, removed, "Should remove all 5 jobs (3 added via queue.Add + 2 manually added)")
+
+	// Verify all queues are empty
+	counts, err = queue.GetJobCounts(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), counts.Waiting, "Wait queue should be empty")
+	assert.Equal(t, int64(0), counts.Prioritized, "Prioritized queue should be empty")
+	assert.Equal(t, int64(0), counts.Delayed, "Delayed queue should be empty")
+	assert.Equal(t, int64(0), counts.Completed, "Completed queue should be empty")
+	assert.Equal(t, int64(0), counts.Failed, "Failed queue should be empty")
+	assert.Equal(t, int64(0), counts.Active, "Active queue should be empty")
+
+	// Verify job hashes are removed
+	job, err := queue.GetJob(ctx, job1.ID)
+	assert.Error(t, err, "Job1 hash should not exist")
+	assert.Nil(t, job)
+
+	job, err = queue.GetJob(ctx, job2.ID)
+	assert.Error(t, err, "Job2 hash should not exist")
+	assert.Nil(t, job)
+
+	job, err = queue.GetJob(ctx, job3.ID)
+	assert.Error(t, err, "Job3 hash should not exist")
+	assert.Nil(t, job)
+
+	job, err = queue.GetJob(ctx, job4ID)
+	assert.Error(t, err, "Job4 hash should not exist")
+	assert.Nil(t, job)
+
+	job, err = queue.GetJob(ctx, job5ID)
+	assert.Error(t, err, "Job5 hash should not exist")
+	assert.Nil(t, job)
+
+	// Verify logs are removed
+	logsLen, _ := rdb.LLen(ctx, logsKey).Result()
+	assert.Equal(t, int64(0), logsLen, "Job logs should be removed")
+
+	// Verify events stream is cleared
+	eventsKey := kb.Events()
+	eventsLen, _ := rdb.XLen(ctx, eventsKey).Result()
+	assert.Equal(t, int64(0), eventsLen, "Events stream should be cleared")
 }

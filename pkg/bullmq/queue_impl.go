@@ -61,7 +61,8 @@ func (q *Queue) Add(ctx context.Context, name string, data map[string]interface{
 	}
 
 	// Emit "waiting" event
-	if err := q.emitWaitingEvent(ctx, job); err != nil {
+	// Emit waiting event using EventEmitter for consistency
+	if err := q.eventEmitter.EmitWaiting(ctx, job); err != nil {
 		// Log error but don't fail job submission
 		// Event emission failure is not critical
 	}
@@ -122,27 +123,6 @@ func (q *Queue) enqueueJob(ctx context.Context, job *Job) error {
 
 	// Default: add to wait queue (FIFO)
 	return q.redisClient.LPush(ctx, q.keyBuilder.Wait(), job.ID).Err()
-}
-
-// emitWaitingEvent emits a "waiting" event to the events stream
-func (q *Queue) emitWaitingEvent(ctx context.Context, job *Job) error {
-	event := map[string]interface{}{
-		"event":        EventWaiting,
-		"jobId":        job.ID,
-		"name":         job.Name,
-		"timestamp":    time.Now().UnixMilli(),
-		"attemptsMade": job.AttemptsMade,
-		"priority":     job.Opts.Priority,
-		"delay":        job.Delay,
-	}
-
-	// Add to events stream with max length
-	return q.redisClient.XAdd(ctx, &redis.XAddArgs{
-		Stream: q.keyBuilder.Events(),
-		MaxLen: 10000,
-		Approx: true, // Use approximate trimming for performance
-		Values: event,
-	}).Err()
 }
 
 // GetJob retrieves a job by ID
@@ -316,6 +296,96 @@ func (q *Queue) Clean(ctx context.Context, age time.Duration, limit int, jobType
 	}
 
 	return len(jobIDs), nil
+}
+
+// Drain removes all jobs from the queue across all states (wait, prioritized, delayed, active, completed, failed).
+// This is a DESTRUCTIVE operation that cannot be undone. Use with extreme caution.
+//
+// Returns the total number of jobs removed.
+func (q *Queue) Drain(ctx context.Context) (int, error) {
+	kb := q.keyBuilder
+
+	// Collect all job IDs from all queues
+	jobIDSet := make(map[string]bool)
+
+	// 1. Get jobs from wait queue (LIST)
+	waitJobs, err := q.redisClient.LRange(ctx, kb.Wait(), 0, -1).Result()
+	if err != nil && err != redis.Nil {
+		return 0, fmt.Errorf("failed to get wait jobs: %w", err)
+	}
+	for _, jobID := range waitJobs {
+		jobIDSet[jobID] = true
+	}
+
+	// 2. Get jobs from prioritized queue (ZSET)
+	prioritizedJobs, err := q.redisClient.ZRange(ctx, kb.Prioritized(), 0, -1).Result()
+	if err != nil && err != redis.Nil {
+		return 0, fmt.Errorf("failed to get prioritized jobs: %w", err)
+	}
+	for _, jobID := range prioritizedJobs {
+		jobIDSet[jobID] = true
+	}
+
+	// 3. Get jobs from delayed queue (ZSET)
+	delayedJobs, err := q.redisClient.ZRange(ctx, kb.Delayed(), 0, -1).Result()
+	if err != nil && err != redis.Nil {
+		return 0, fmt.Errorf("failed to get delayed jobs: %w", err)
+	}
+	for _, jobID := range delayedJobs {
+		jobIDSet[jobID] = true
+	}
+
+	// 4. Get jobs from active queue (LIST)
+	activeJobs, err := q.redisClient.LRange(ctx, kb.Active(), 0, -1).Result()
+	if err != nil && err != redis.Nil {
+		return 0, fmt.Errorf("failed to get active jobs: %w", err)
+	}
+	for _, jobID := range activeJobs {
+		jobIDSet[jobID] = true
+	}
+
+	// 5. Get jobs from completed queue (ZSET)
+	completedJobs, err := q.redisClient.ZRange(ctx, kb.Completed(), 0, -1).Result()
+	if err != nil && err != redis.Nil {
+		return 0, fmt.Errorf("failed to get completed jobs: %w", err)
+	}
+	for _, jobID := range completedJobs {
+		jobIDSet[jobID] = true
+	}
+
+	// 6. Get jobs from failed queue (ZSET)
+	failedJobs, err := q.redisClient.ZRange(ctx, kb.Failed(), 0, -1).Result()
+	if err != nil && err != redis.Nil {
+		return 0, fmt.Errorf("failed to get failed jobs: %w", err)
+	}
+	for _, jobID := range failedJobs {
+		jobIDSet[jobID] = true
+	}
+
+	// Delete all queue keys and job data in a single pipeline
+	pipe := q.redisClient.Pipeline()
+
+	// Delete all queue keys
+	pipe.Del(ctx, kb.Wait())
+	pipe.Del(ctx, kb.Prioritized())
+	pipe.Del(ctx, kb.Delayed())
+	pipe.Del(ctx, kb.Active())
+	pipe.Del(ctx, kb.Completed())
+	pipe.Del(ctx, kb.Failed())
+	pipe.Del(ctx, kb.Events()) // Also clear events stream
+
+	// Delete all job-related keys (hash, lock, logs)
+	for jobID := range jobIDSet {
+		pipe.Del(ctx, kb.Job(jobID))
+		pipe.Del(ctx, kb.Lock(jobID))
+		pipe.Del(ctx, kb.Logs(jobID))
+	}
+
+	if _, err := pipe.Exec(ctx); err != nil {
+		return 0, fmt.Errorf("failed to drain queue: %w", err)
+	}
+
+	return len(jobIDSet), nil
 }
 
 // RetryJob moves a failed job back to waiting queue

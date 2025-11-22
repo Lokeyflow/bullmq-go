@@ -1,12 +1,13 @@
 module github.com/lokeyflow/bullmq-go
 
-go 1.24
+go 1.24.0
 
 require (
 	github.com/google/uuid v1.6.0
 	github.com/redis/go-redis/v9 v9.16.0
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.39.0
+	github.com/vmihailenco/msgpack/v5 v5.4.1
 )
 
 require (
@@ -52,7 +53,6 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
-	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect

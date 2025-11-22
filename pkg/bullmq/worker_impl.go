@@ -155,13 +155,13 @@ func (w *Worker) processJob(ctx context.Context, jobID string, lockToken LockTok
 	}
 
 	// Execute job processor
-	err = w.processor(job)
+	result, err := w.processor(job)
 
 	// Handle result
 	if err != nil {
 		w.handleJobFailure(ctx, job, err)
 	} else {
-		w.handleJobSuccess(ctx, job)
+		w.handleJobSuccess(ctx, job, result)
 	}
 }
 
@@ -237,29 +237,10 @@ func (w *Worker) getJobData(ctx context.Context, jobID string) (*Job, error) {
 }
 
 // handleJobSuccess handles successful job completion
-func (w *Worker) handleJobSuccess(ctx context.Context, job *Job) {
-	kb := NewKeyBuilder(w.queueName, w.redisClient)
-
-	// Remove from active
-	w.redisClient.LRem(ctx, kb.Active(), 1, job.ID)
-
-	// Remove lock
-	w.redisClient.Del(ctx, kb.Lock(job.ID))
-
-	// Add to completed (if not removeOnComplete)
-	if !job.Opts.RemoveOnComplete {
-		score := float64(time.Now().UnixMilli())
-		w.redisClient.ZAdd(ctx, kb.Completed(), redis.Z{
-			Score:  score,
-			Member: job.ID,
-		})
-	} else {
-		// Remove job data
-		w.redisClient.Del(ctx, kb.Job(job.ID))
-	}
-
-	// Emit completed event
-	w.eventEmitter.EmitCompleted(ctx, job, nil)
+func (w *Worker) handleJobSuccess(ctx context.Context, job *Job, returnValue interface{}) {
+	// Use Completer to handle job completion with return value
+	completer := NewCompleter(w)
+	completer.Complete(ctx, job, returnValue)
 }
 
 // handleJobFailure handles job failure

@@ -24,11 +24,13 @@ After completing all P0 (critical) and P1 (high priority) issues, the following 
 **Issue**: Spec says delayed jobs moved "when ready" but mechanism is vague
 
 **Current State**:
+
 - `bull:{queue}:delayed` ZSET exists (score = timestamp)
 - No polling frequency specified
 - No latency SLO defined
 
 **Proposed Solution**:
+
 ```yaml
 mechanism: Separate goroutine polls delayed ZSET every 5s
 query: ZRANGEBYSCORE delayed -inf {now} LIMIT 10
@@ -48,11 +50,13 @@ alternative: Integrate into moveToActive.lua (check delayed before wait)
 **Issue**: NTP correction or DST bugs could cause negative time deltas
 
 **Current State**:
+
 - Uses `time.Now().UnixMilli()` for timestamps
 - No monotonic clock for delays
 - Could cause negative backoff delays
 
 **Proposed Solution**:
+
 ```yaml
 timestamps: Continue using wall clock (required for absolute scheduling)
 delays: Use time.Since() for relative delays (monotonic clock)
@@ -72,10 +76,12 @@ testing: Mock time.Now() to return decreasing values, verify no panics
 **Issue**: What happens to jobs exceeding 30s shutdown timeout?
 
 **Current State**:
+
 - Spec says "wait for active jobs with 30s timeout"
 - Behavior after timeout is undefined
 
 **Proposed Solution**:
+
 ```yaml
 policy: Jobs exceeding timeout are ABANDONED (not failed)
 behavior:
@@ -100,10 +106,12 @@ metric: bullmq_shutdown_abandoned_jobs_total counter
 **Issue**: All jobs retry at exact same time (thundering herd)
 
 **Current State**:
+
 - Exponential backoff: `delay * 2^(attempt-1)`
 - No jitter, jobs with same attempt retry simultaneously
 
 **Proposed Solution**:
+
 ```yaml
 formula: delay * 2^(attempt-1) * (0.9 + 0.2*rand())
 jitter_range: ±10% to spread retries
@@ -127,10 +135,12 @@ configuration: WorkerOptions.BackoffJitter (default 0.1 = 10%)
 **Issue**: Password may leak in debug logs or error messages
 
 **Current State**:
+
 - Redis connection string contains password
 - No explicit sanitization documented
 
 **Proposed Solution**:
+
 ```yaml
 sanitization:
   - Redact password in all log messages
@@ -155,9 +165,11 @@ testing:
 **Issue**: Job data may contain PII (email, SSN) logged in errors
 
 **Current State**:
+
 - Spec says "log job ID only" but not enforced
 
 **Proposed Solution**:
+
 ```yaml
 policy: NEVER log job.Data in default log level
 default: Log jobId, jobName, attemptsMade only
@@ -180,10 +192,12 @@ compliance: GDPR, CCPA compliant by default
 **Issue**: Circular refs in job.Data cause JSON serialization to hang
 
 **Current State**:
+
 - No validation for circular references
 - `json.Marshal()` may infinite loop
 
 **Proposed Solution**:
+
 ```yaml
 validation: Check for circular refs before JSON serialization
 detection: Track visited objects during traversal
@@ -205,10 +219,12 @@ performance: O(N) traversal, negligible for most payloads
 **Issue**: No documented max concurrency, users may set 10,000
 
 **Current State**:
+
 - Concurrency configurable, no upper bound
 - 10,000 goroutines = memory/connection exhaustion
 
 **Proposed Solution**:
+
 ```yaml
 recommended: 10-100 (documented in CLAUDE.md)
 warning_threshold: Concurrency > 100 → log WARN
@@ -231,10 +247,12 @@ configuration: WorkerOptions.MaxConcurrency (default unlimited, opt-in limit)
 **Issue**: No documented connection pool size or tuning
 
 **Current State**:
+
 - Uses go-redis default pool settings
 - No recommendations for production
 
 **Proposed Solution**:
+
 ```yaml
 pool_size: 10 * Concurrency (default go-redis formula)
 min_idle_conns: 5 (keep connections warm)
@@ -255,11 +273,13 @@ documentation: Add to CLAUDE.md "Production Configuration" section
 **Issue**: Scanning 100,000 active jobs blocks Redis
 
 **Current State**:
+
 - LRANGE fetches entire active list
 - Performance target: < 100ms for 10k jobs
 - No solution for 100k+ jobs
 
 **Proposed Solution**:
+
 ```yaml
 implementation: Cursor-based iteration in Lua script
 algorithm:
@@ -285,10 +305,12 @@ configuration: WorkerOptions.StalledCheckBatchSize (default 1000)
 **Issue**: Code coverage doesn't prove tests actually validate behavior
 
 **Current State**:
+
 - Target: 80% line coverage
 - No mutation testing requirement
 
 **Proposed Solution**:
+
 ```yaml
 tool: github.com/zimmski/go-mutesting
 target: 70% mutation score
@@ -314,10 +336,12 @@ files_to_mutate:
 **Issue**: 24-hour load test not defined
 
 **Current State**:
+
 - Spec mentions "10,000+ jobs" but no long-running test
 - Memory leak detection mechanism undefined
 
 **Proposed Solution**:
+
 ```yaml
 test_duration: 24 hours
 job_rate: 100 jobs/second = 8.6M jobs total
@@ -343,10 +367,12 @@ failure_criteria: Memory growth > 100MB/24h or goroutines > 1000
 **Issue**: Node.js compatibility tests are manual
 
 **Current State**:
+
 - Spec describes shadow testing
 - No automated CI integration
 
 **Proposed Solution**:
+
 ```yaml
 ci_setup:
   - Install Node.js 18+ in CI
@@ -391,30 +417,35 @@ automation: tests/compatibility/run.sh script
 ## Recommended Implementation Order
 
 ### Phase 1: Security (High Impact, Quick Wins)
+
 **Effort**: 6-8 hours
 **Items**: P2-5, P2-6
 
 These are critical for production compliance and relatively quick to implement.
 
 ### Phase 2: Testing Infrastructure (High Impact)
+
 **Effort**: 13-17 hours
 **Items**: P2-12, P2-13, P2-11
 
 Establishes confidence for production deployment.
 
 ### Phase 3: Production Hardening (Medium Impact)
+
 **Effort**: 6-8 hours
 **Items**: P2-1, P2-3, P2-7
 
 Improves production reliability and edge case handling.
 
 ### Phase 4: Performance Optimization (Low Impact)
+
 **Effort**: 5-7 hours
 **Items**: P2-4, P2-8, P2-9, P2-10
 
 Nice-to-have improvements for high-scale scenarios.
 
 ### Phase 5: Edge Cases (Low Priority)
+
 **Effort**: 1-2 hours
 **Items**: P2-2
 
@@ -425,6 +456,7 @@ Handle rare scenarios (can defer to post-launch).
 ## Decision: When to Address P2 Issues?
 
 ### Option 1: Address Before Initial Release ✅ **Recommended**
+
 - **Pro**: Production-ready from day 1
 - **Pro**: Avoids technical debt
 - **Pro**: Security/compliance handled upfront
@@ -432,6 +464,7 @@ Handle rare scenarios (can defer to post-launch).
 - **Total Effort**: 30-40 hours
 
 ### Option 2: Ship Now, Fix in v0.2
+
 - **Pro**: Faster initial release
 - **Pro**: Get user feedback early
 - **Con**: Security issues (P2-5, P2-6) are risks
@@ -439,7 +472,9 @@ Handle rare scenarios (can defer to post-launch).
 - **Must Do Before v1.0**: P2-5, P2-6, P2-12, P2-13
 
 ### Option 3: Hybrid Approach ⚡ **Pragmatic**
+
 **Ship v0.1 with Phase 1 + Phase 2** (Security + Testing)
+
 - Effort: 19-25 hours (1 week)
 - Production-ready for low-to-medium scale
 - Defer Phase 3-5 to v0.2 based on user feedback

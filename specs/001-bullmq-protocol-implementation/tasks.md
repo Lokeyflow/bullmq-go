@@ -11,7 +11,7 @@
 
 ## 🎯 Overall Progress
 
-**Total**: 121 / 188 tasks complete (64.4%)
+**Total**: 126 / 188 tasks complete (67.0%)
 
 **Status**: ✅ **MVP + INTEGRATION TESTS VERIFIED** (Phases 1-10 complete including Redis Cluster, 10 Worker integration tests passing, 2 Cluster integration tests passing)
 
@@ -27,9 +27,10 @@
 | Phase 6 | ✅ **COMPLETE** | 10/10 | Stalled job recovery |
 | Phase 7 | ✅ **COMPLETE** | 11/11 | Retry logic with backoff |
 | Phase 8 | ✅ **COMPLETE** | 9/9 | Progress & logs (Lua scripts + tests) |
-| Phase 9 | ✅ **COMPLETE** | 12/13 | Queue management API |
+| Phase 9 | ✅ **COMPLETE** | 13/13 | Queue management API |
 | Phase 10 | ✅ **COMPLETE** | 7/7 | Redis Cluster compatibility (full integration tests) |
-| Phase 11-18 | ⏳ **PENDING** | 0/73 | Advanced features |
+| Phase 11 | ✅ **COMPLETE** | 4/4 | Event Stream (Redis streams with MAXLEN) |
+| Phase 12-18 | ⏳ **PENDING** | 0/69 | Advanced features |
 
 **MVP Achievement**: Core producer-worker-queue functionality operational with 35+ unit tests and 10 passing integration tests.
 
@@ -47,7 +48,22 @@
   - Integration tests validating multi-key Lua scripts and CROSSSLOT error handling
   - Comprehensive documentation in CLAUDE.md and CLUSTER_TESTING.md
 
-**Next Priority**: Phase 11+ advanced features (Event Streams, Reliability, Observability) or additional integration tests.
+**Recent Updates (2025-11-01)**:
+- ✅ Completed T108: Implemented Queue.Drain() method
+  - Removes all jobs from all queues (wait, prioritized, delayed, active, completed, failed)
+  - Deletes all job hashes, locks, and logs
+  - Clears events stream
+  - Comprehensive integration test covering all queue states
+- ✅ Phase 9 now 100% complete (13/13 tasks)
+- ✅ Completed Phase 11 (Event Stream) - T116-T122
+  - Fixed EventEmitter to match Node.js BullMQ format (direct stream fields, not JSON)
+  - Added EventEmitter to Queue for consistent waiting event emission
+  - All events now use same format: waiting, active, progress, completed, failed
+  - 3 integration tests passing (TestEvents_EmittedWithMaxLen, TestEvents_FormatMatchesNodeJS, TestEvents_AllEventTypesEmitted)
+  - Stalled/retry events handled by Lua scripts
+- ✅ Phase 11 now 100% complete (4/4 tasks)
+
+**Next Priority**: Phase 12+ advanced features (Reliability, Observability, Cross-language compatibility) or additional integration tests.
 
 ---
 
@@ -311,7 +327,7 @@
 - [X] T105 [P] [FR-8] Implement Queue.GetJobCounts() method in pkg/bullmq/queue.go
 - [X] T106 [P] [FR-8] Implement Queue.GetJob() method in pkg/bullmq/queue.go
 - [X] T107 [P] [FR-8] Implement Queue.RemoveJob() method in pkg/bullmq/queue.go
-- [ ] T108 [P] [FR-8] Implement Queue.Drain() method in pkg/bullmq/queue.go
+- [X] T108 [P] [FR-8] Implement Queue.Drain() method in pkg/bullmq/queue.go
 
 **Checkpoint**: Queue management API complete
 
@@ -348,16 +364,16 @@
 
 ### Tests for FR-10 (TDD - Write First) ⚠️
 
-- [ ] T116 [P] [FR-10] Integration test: Events emitted to Redis stream with MAXLEN ~10000 in tests/integration/events_test.go
-- [ ] T117 [P] [FR-10] Integration test: Event format matches Node.js BullMQ in tests/integration/events_test.go
-- [ ] T118 [P] [FR-10] Integration test: All event types emitted (waiting, active, progress, completed, failed, stalled, retry) in tests/integration/events_test.go
+- [X] T116 [P] [FR-10] Integration test: Events emitted to Redis stream with MAXLEN ~10000 in tests/integration/events_test.go
+- [X] T117 [P] [FR-10] Integration test: Event format matches Node.js BullMQ in tests/integration/events_test.go
+- [X] T118 [P] [FR-10] Integration test: All event types emitted (waiting, active, progress, completed, failed, stalled, retry) in tests/integration/events_test.go
 
 ### Implementation for FR-10
 
-- [ ] T119 [FR-10] Implement EventEmitter struct in pkg/bullmq/events.go
-- [ ] T120 [FR-10] Implement XADD with MAXLEN ~10000 for all events in pkg/bullmq/events.go
-- [ ] T121 [FR-10] Verify event format matches contracts/event-schema.json in pkg/bullmq/events.go
-- [ ] T122 [FR-10] Integrate EventEmitter into Worker lifecycle in pkg/bullmq/worker.go
+- [X] T119 [FR-10] Implement EventEmitter struct in pkg/bullmq/events.go
+- [X] T120 [FR-10] Implement XADD with MAXLEN ~10000 for all events in pkg/bullmq/events.go
+- [X] T121 [FR-10] Verify event format matches contracts/event-schema.json in pkg/bullmq/events.go
+- [X] T122 [FR-10] Integrate EventEmitter into Worker lifecycle in pkg/bullmq/worker.go
 
 **Checkpoint**: Event stream fully functional
 
