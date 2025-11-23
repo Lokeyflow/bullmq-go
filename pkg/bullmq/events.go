@@ -2,6 +2,7 @@ package bullmq
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -97,13 +98,25 @@ func (ee *EventEmitter) EmitActive(ctx context.Context, job *Job) error {
 
 // EmitCompleted emits a completed event
 func (ee *EventEmitter) EmitCompleted(ctx context.Context, job *Job, returnValue interface{}) error {
+	// Serialize returnvalue as JSON string (BullMQ protocol requirement)
+	var returnValueStr string
+	if returnValue != nil {
+		returnValueJSON, err := json.Marshal(returnValue)
+		if err != nil {
+			// If marshaling fails, use error message
+			returnValueStr = `{"error":"failed to marshal return value"}`
+		} else {
+			returnValueStr = string(returnValueJSON)
+		}
+	}
+
 	return ee.Emit(ctx, Event{
 		EventType:    EventCompleted,
 		JobID:        job.ID,
 		Timestamp:    time.Now().UnixMilli(),
 		AttemptsMade: job.AttemptsMade,
 		Data: map[string]interface{}{
-			"returnvalue": returnValue,
+			"returnvalue": returnValueStr,
 		},
 	})
 }

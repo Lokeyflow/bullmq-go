@@ -2,6 +2,7 @@ package bullmq
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -31,10 +32,16 @@ func (c *Completer) Complete(ctx context.Context, job *Job, returnValue interfac
 	job.ReturnValue = returnValue
 	job.FinishedOn = time.Now().UnixMilli()
 
-	// Store return value
+	// Store return value as JSON (BullMQ protocol requirement)
 	if returnValue != nil {
+		returnValueJSON, err := json.Marshal(returnValue)
+		if err != nil {
+			// If JSON marshaling fails, store error message
+			returnValueJSON = []byte(fmt.Sprintf(`{"error":"failed to marshal return value: %v"}`, err))
+		}
+
 		c.worker.redisClient.HSet(ctx, kb.Job(job.ID),
-			"returnvalue", fmt.Sprintf("%v", returnValue),
+			"returnvalue", string(returnValueJSON),
 			"finishedOn", job.FinishedOn,
 		)
 	}
