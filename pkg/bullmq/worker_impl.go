@@ -154,13 +154,23 @@ func (w *Worker) processJob(ctx context.Context, jobID string, lockToken LockTok
 		defer w.heartbeatManager.StopHeartbeat(jobID)
 	}
 
+	// Track processing time for results queue metadata
+	startTime := time.Now()
+
 	// Execute job processor
 	result, err := w.processor(job)
+
+	duration := time.Since(startTime)
 
 	// Handle result
 	if err != nil {
 		w.handleJobFailure(ctx, job, err)
 	} else {
+		// Send to results queue if configured (only on success)
+		if w.resultsQueue != nil {
+			w.sendToResultsQueue(job, result, duration)
+		}
+
 		w.handleJobSuccess(ctx, job, result)
 	}
 }

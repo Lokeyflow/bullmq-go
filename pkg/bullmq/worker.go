@@ -22,6 +22,11 @@ type WorkerOptions struct {
 	MaxReconnectAttempts int
 	EventsMaxLen         int64
 	ShutdownTimeout      time.Duration
+
+	// ResultsQueue enables automatic result forwarding to a dedicated queue
+	// for reliable downstream processing (optional, nil = disabled)
+	// This is an application-level pattern, not a BullMQ protocol feature.
+	ResultsQueue *ResultsQueueConfig
 }
 
 // DefaultWorkerOptions provides sensible defaults
@@ -54,6 +59,10 @@ type Worker struct {
 	reconnectAttempts int
 	isConnected      bool
 	mu               sync.RWMutex
+
+	// Results queue (optional)
+	resultsQueue       *Queue
+	resultsQueueConfig *ResultsQueueConfig
 }
 
 // JobProcessor is the function signature for job processing
@@ -85,11 +94,54 @@ func NewWorker(queueName string, redisClient redis.Cmdable, opts WorkerOptions) 
 	// Initialize event emitter
 	worker.eventEmitter = NewEventEmitter(queueName, redisClient, opts.EventsMaxLen)
 
+	// Setup results queue if configured
+	if opts.ResultsQueue != nil {
+		worker.resultsQueue = NewQueue(opts.ResultsQueue.QueueName, redisClient)
+		worker.resultsQueueConfig = opts.ResultsQueue
+	}
+
 	return worker
 }
 
 // Process registers the job processor function
 func (w *Worker) Process(processor JobProcessor) {
+	w.processor = processor
+}
+
+// ProcessWithResults registers a job processor that automatically forwards
+// results to a dedicated results queue for reliable downstream processing.
+//
+// This is a convenience helper for the results queue pattern recommended by BullMQ:
+// https://docs.bullmq.io/guide/returning-job-data
+//
+// The result is still stored in job.returnvalue for immediate access.
+// Results are only sent to the queue on successful job completion.
+//
+// Example:
+//
+//	worker.ProcessWithResults("results", func(job *bullmq.Job) (interface{}, error) {
+//	    result := processVideo(job.Data)
+//	    return result, nil // Automatically sent to "results" queue
+//	}, bullmq.ResultsQueueConfig{
+//	    OnError: func(jobID string, err error) {
+//	        log.Printf("Failed to send result: %v", err)
+//	    },
+//	})
+func (w *Worker) ProcessWithResults(resultsQueueName string, processor JobProcessor, config ...ResultsQueueConfig) {
+	// Setup results queue config
+	cfg := DefaultResultsQueueConfig
+	cfg.QueueName = resultsQueueName
+
+	if len(config) > 0 {
+		cfg = config[0]
+		cfg.QueueName = resultsQueueName // Ensure queue name is set
+	}
+
+	// Initialize results queue
+	w.resultsQueue = NewQueue(resultsQueueName, w.redisClient)
+	w.resultsQueueConfig = &cfg
+
+	// Register processor
 	w.processor = processor
 }
 
