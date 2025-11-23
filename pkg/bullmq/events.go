@@ -103,7 +103,7 @@ func (ee *EventEmitter) EmitCompleted(ctx context.Context, job *Job, returnValue
 		Timestamp:    time.Now().UnixMilli(),
 		AttemptsMade: job.AttemptsMade,
 		Data: map[string]interface{}{
-			"returnValue": returnValue,
+			"returnvalue": returnValue,
 		},
 	})
 }

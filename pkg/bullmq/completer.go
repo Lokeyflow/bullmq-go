@@ -34,7 +34,7 @@ func (c *Completer) Complete(ctx context.Context, job *Job, returnValue interfac
 	// Store return value
 	if returnValue != nil {
 		c.worker.redisClient.HSet(ctx, kb.Job(job.ID),
-			"returnValue", fmt.Sprintf("%v", returnValue),
+			"returnvalue", fmt.Sprintf("%v", returnValue),
 			"finishedOn", job.FinishedOn,
 		)
 	}
@@ -99,47 +99,8 @@ func (c *Completer) Fail(ctx context.Context, job *Job, err error) error {
 	c.worker.redisClient.Del(ctx, kb.Lock(job.ID))
 
 	// Emit failed event
-	c.emitFailedEvent(ctx, job)
+	c.worker.eventEmitter.EmitFailed(ctx, job, err)
 
 	return nil
 }
 
-// emitCompletedEvent emits a completed event
-func (c *Completer) emitCompletedEvent(ctx context.Context, job *Job) {
-	kb := NewKeyBuilder(c.worker.queueName, c.worker.redisClient)
-
-	event := map[string]interface{}{
-		"event":        EventCompleted,
-		"jobId":        job.ID,
-		"returnValue":  job.ReturnValue,
-		"timestamp":    time.Now().UnixMilli(),
-		"attemptsMade": job.AttemptsMade,
-	}
-
-	c.worker.redisClient.XAdd(ctx, &redis.XAddArgs{
-		Stream: kb.Events(),
-		MaxLen: 10000,
-		Approx: true,
-		Values: event,
-	})
-}
-
-// emitFailedEvent emits a failed event
-func (c *Completer) emitFailedEvent(ctx context.Context, job *Job) {
-	kb := NewKeyBuilder(c.worker.queueName, c.worker.redisClient)
-
-	event := map[string]interface{}{
-		"event":        EventFailed,
-		"jobId":        job.ID,
-		"failedReason": job.FailedReason,
-		"timestamp":    time.Now().UnixMilli(),
-		"attemptsMade": job.AttemptsMade,
-	}
-
-	c.worker.redisClient.XAdd(ctx, &redis.XAddArgs{
-		Stream: kb.Events(),
-		MaxLen: 10000,
-		Approx: true,
-		Values: event,
-	})
-}
