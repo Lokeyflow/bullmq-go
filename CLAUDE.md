@@ -2,6 +2,43 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## ⚠️ CRITICAL: BullMQ Protocol Compliance
+
+**RULE: We MUST NOT deviate from the official BullMQ protocol definition.**
+
+Before planning or implementing ANY changes:
+1. **Check the BullMQ protocol specification** at [BullMQ Docs](https://docs.bullmq.io/)
+2. **Verify against Node.js implementation** at [BullMQ GitHub](https://github.com/taskforcesh/bullmq)
+3. **Validate field names, data structures, and Redis keys** match exactly
+4. **Test cross-language compatibility** with Node.js BullMQ
+
+### Protocol Version Compatibility
+
+- **Target BullMQ Version**: v5.62.0 (released 2025-10-28)
+- **Commit SHA**: `6a31e0aeab1311d7d089811ede7e11a98b6dd408`
+- **Why pinned**: Exact commit pinning prevents protocol drift and ensures reproducible builds
+- **Lua Scripts**: Extracted from official BullMQ repository at pinned version
+- **CI Validation**: Automated checks compare scripts to upstream commit on every build
+
+**Protocol-Critical Fields** (MUST match exactly):
+- Job hash fields: `returnvalue` (lowercase, NOT `returnValue`)
+- Event stream fields: `returnvalue`, `jobId`, `failedReason`, etc.
+- Redis key format: `bull:queuename:*` or `bull:{queuename}:*` (cluster)
+- Queue states: `wait`, `active`, `completed`, `failed`, `delayed`, `prioritized`
+
+**When adding new features:**
+- ✅ **Allowed**: Helper methods, convenience APIs, Go-specific patterns (e.g., `ProcessWithResults()`)
+- ✅ **Allowed**: Application-level patterns built on top of protocol (e.g., results queue pattern)
+- ❌ **Forbidden**: Changing Redis data structures, modifying Lua scripts, altering field names
+- ❌ **Forbidden**: Adding new protocol features not in BullMQ Node.js
+- ⚠️ **Verify**: Any feature that stores data in Redis or emits events must match protocol exactly
+
+**Example - Results Queue Pattern**:
+- ✅ Implementing `ProcessWithResults()` helper (calls standard `Queue.Add()`)
+- ✅ Documented as application pattern, not protocol feature
+- ❌ Creating special Redis keys for results
+- ❌ Modifying protocol's `returnvalue` behavior
+
 ## Project Overview
 
 **bullmq-go** is a Go client library for [BullMQ](https://github.com/taskforcesh/bullmq), providing protocol-compatible job queue functionality using Redis. This library enables Go applications to produce and consume jobs from BullMQ queues, with full interoperability with Node.js BullMQ workers and producers.
