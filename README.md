@@ -12,6 +12,7 @@ A Go client library for [BullMQ](https://github.com/taskforcesh/bullmq), providi
 - **Cross-Language Compatibility** - Auto-detects Redis mode and adjusts key formats for perfect interoperability
 - **Worker API** - Consume jobs with configurable concurrency, retry logic, and stalled job recovery
 - **Producer API** - Add jobs with priority, delay, and scheduling options
+- **Results Queue Pattern** - Reliable result persistence with automatic forwarding to dedicated queues
 - **Queue Management API** - Pause, resume, clean, and monitor queues
 - **Atomic Operations** - Uses official BullMQ Lua scripts for race-free job state management
 - **Redis Cluster Support** - Automatic hash tag detection and cluster-aware key formatting
@@ -329,6 +330,101 @@ job, err := queue.Add("task", data, bullmq.JobOptions{
 })
 ```
 
+### Results Queue Pattern
+
+For production systems that require reliable result persistence, BullMQ-Go provides the **results queue pattern** - a recommended practice where job results are automatically forwarded to a dedicated queue for downstream processing.
+
+**Benefits**:
+- Results persist in Redis until successfully processed
+- Survives service restarts and temporary failures
+- Automatic retries for failed result storage
+- Decouples job processing from result persistence
+- Perfect for microservices architecture
+
+**Example - Explicit Mode (ProcessWithResults)**:
+```go
+// Video processing worker
+videoWorker := bullmq.NewWorker("video-queue", redisClient, bullmq.WorkerOptions{
+    Concurrency: 5,
+})
+
+videoWorker.ProcessWithResults("results", func(job *bullmq.Job) (interface{}, error) {
+    videoURL := job.Data["videoURL"].(string)
+
+    // Process video
+    processedURL := processVideo(videoURL)
+
+    // Result automatically sent to "results" queue with metadata
+    return map[string]interface{}{
+        "outputURL": processedURL,
+        "duration":  123.45,
+        "format":    "mp4",
+    }, nil
+}, bullmq.ResultsQueueConfig{
+    OnError: func(jobID string, err error) {
+        log.Printf("Failed to send result for job %s: %v", jobID, err)
+    },
+})
+
+// Results worker - processes results from ALL queues
+resultsWorker := bullmq.NewWorker("results", redisClient, bullmq.WorkerOptions{})
+
+resultsWorker.Process(func(job *bullmq.Job) (interface{}, error) {
+    jobID := job.Data["jobId"].(string)
+    queueName := job.Data["queueName"].(string)
+    result := job.Data["result"]
+    processTime := job.Data["processTime"]
+
+    // Store in database
+    db.SaveResult(jobID, result)
+
+    // Send webhooks
+    webhooks.NotifyCompletion(result)
+
+    return nil, nil
+})
+```
+
+**Example - Implicit Mode (WorkerOptions)**:
+```go
+// Email worker with automatic result forwarding
+emailWorker := bullmq.NewWorker("email-queue", redisClient, bullmq.WorkerOptions{
+    Concurrency: 10,
+    ResultsQueue: &bullmq.ResultsQueueConfig{
+        QueueName: "results",
+        Options: bullmq.JobOptions{
+            Attempts: 5, // Retry result storage up to 5 times
+        },
+    },
+})
+
+emailWorker.Process(func(job *bullmq.Job) (interface{}, error) {
+    // Result automatically forwarded to "results" queue
+    return map[string]interface{}{
+        "sent":      true,
+        "messageId": "msg-123",
+    }, nil
+})
+```
+
+**Result Metadata** - Each result includes rich metadata:
+```json
+{
+  "jobId": "12345",
+  "queueName": "video-queue",
+  "result": {
+    "outputURL": "https://cdn.example.com/processed/12345.mp4",
+    "duration": 123.45
+  },
+  "timestamp": 1699564800,
+  "processTime": 2000,
+  "attempt": 1,
+  "workerId": "worker-1-12345-abc123"
+}
+```
+
+See [examples/results-queue](./examples/results-queue/) for a complete working example.
+
 ### Error Handling
 
 The library automatically categorizes errors as transient (retry) or permanent (fail immediately):
@@ -530,6 +626,7 @@ See the [examples/](./examples/) directory for complete working examples:
 - [Worker](./examples/worker/) - Basic worker setup
 - [Producer](./examples/producer/) - Job submission
 - [Queue Management](./examples/queue/) - Queue operations
+- [Results Queue](./examples/results-queue/) - Reliable result persistence pattern
 - [Progress Tracking](./examples/progress/) - Real-time progress updates
 - [Node.js Interop](./examples/nodejs-interop/) - Cross-language compatibility
 
@@ -605,9 +702,9 @@ MIT License - see [LICENSE](./LICENSE) for details.
 
 ## Status
 
-**Current Version**: v0.1.0 (alpha)
+**Current Version**: v0.2.0 (beta)
 
-This library is under active development. The API may change before v1.0.0 release. Production use is not recommended until v1.0.0.
+This library is under active development. The API is stabilizing but may change before v1.0.0 release. Use in production with caution and thorough testing.
 
 ---
 

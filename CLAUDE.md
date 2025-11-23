@@ -442,6 +442,47 @@ if err := processJob(job); err != nil {
 }
 ```
 
+### Results Queue Pattern
+
+**What is it**: An application-level pattern (NOT part of BullMQ protocol) for reliable result persistence.
+
+**When to use**:
+- Production systems requiring guaranteed result persistence
+- Results that are expensive to recompute
+- Microservice architectures with decoupled services
+- Systems that need to survive service restarts
+
+**Implementation**:
+```go
+// Explicit mode - ProcessWithResults()
+worker.ProcessWithResults("results", func(job *Job) (interface{}, error) {
+    result := processJob(job.Data)
+    return result, nil // Auto-sent to "results" queue
+}, ResultsQueueConfig{
+    OnError: func(jobID string, err error) {
+        log.Printf("Failed to send result: %v", err)
+    },
+})
+
+// Implicit mode - WorkerOptions.ResultsQueue
+worker := NewWorker("myqueue", rdb, WorkerOptions{
+    ResultsQueue: &ResultsQueueConfig{
+        QueueName: "results",
+        Options: JobOptions{Attempts: 5}, // Retry result storage
+    },
+})
+```
+
+**Key Points**:
+- This is a HELPER/CONVENIENCE feature, not protocol
+- Uses standard BullMQ operations under the hood (Queue.Add)
+- Result metadata includes: jobId, queueName, result, timestamp, processTime, attempt, workerId
+- Failed jobs do NOT send to results queue (only successful completions)
+- Original returnvalue still stored in job hash (BullMQ protocol)
+- OnError callback is optional and won't stop job completion
+
+**Testing**: See `tests/integration/results_queue_test.go` for comprehensive examples
+
 ### Lua Scripts
 
 - **Never modify Lua scripts** without validating against Node.js BullMQ
